@@ -1,7 +1,6 @@
 ---
 name: run
 description: "Run Ripplo e2e tests. Use when executing tests."
-user-invokable: true
 ---
 
 # Run Ripplo Tests

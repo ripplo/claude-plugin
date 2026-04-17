@@ -1,7 +1,6 @@
 ---
 name: debug
 description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and network traces from .ripplo/debug/."
-user-invokable: true
 ---
 
 # Debug Ripplo Test

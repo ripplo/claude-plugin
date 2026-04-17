@@ -1,7 +1,6 @@
 ---
 name: create
 description: "Create a new Ripplo test spec. Use when adding a new e2e test for a user flow."
-user-invokable: true
 ---
 
 # Create Ripplo Test

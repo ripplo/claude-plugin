@@ -1,7 +1,6 @@
 ---
 name: explore
 description: "Guided codebase crawl to build test specs and state graph. Use when setting up Ripplo for a new project, adding coverage for new features, or scoping tests to recent code changes."
-user-invokable: true
 ---
 
 # Ripplo Explore

@@ -1,7 +1,6 @@
 ---
 name: setup
 description: "Wire @ripplo/testing into the application server. Use when initializing Ripplo in a project for the first time, or when the precondition endpoints are not yet mounted (e.g. `npx ripplo doctor` reports them missing)."
-user-invokable: true
 ---
 
 # Ripplo Setup

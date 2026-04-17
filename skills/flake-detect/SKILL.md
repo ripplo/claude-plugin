@@ -1,7 +1,6 @@
 ---
 name: flake-detect
 description: "Run flake detection on a Ripplo test. Executes N parallel runs to detect non-deterministic behavior."
-user-invokable: true
 ---
 
 # Ripplo Flake Detection
