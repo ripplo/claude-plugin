@@ -4,7 +4,7 @@
   "plugins": [
     {
       "name": "ripplo",
-      "source": { "source": "github", "repo": "ripplo/claude-plugin" },
+      "source": ".",
       "description": "E2E testing — lint, run, and enforce test coverage"
     }
   ]
