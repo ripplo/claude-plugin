@@ -7,8 +7,8 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
 
 ## Steps
 
-1. Run `npx ripplo list` to find available tests.
-2. Run `npx ripplo run <slug>` if the test hasn't been run recently.
+1. Browse `.ripplo/tests/` (including subfolders) to find the test. Each test declares its id via `.test("<id>")`.
+2. Run `npx ripplo run <id>` if the test hasn't been run recently.
 3. Read debug artifacts from `.ripplo/debug/<runId>/`:
    - `steps/<failedIndex>/dom.html` — inspect the actual DOM at the failing step
    - `steps/<failedIndex>/accessibility-tree.txt` — find correct ARIA roles and locators

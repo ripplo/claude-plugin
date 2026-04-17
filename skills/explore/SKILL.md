@@ -21,9 +21,11 @@ Explore the codebase to find every testable surface:
 - Routes, auth system, data model, interactive components
 - Use sub-agents for deep exploration — the main context should orchestrate, not hold raw file contents
 
-### Phase 2: Plan tests
+### Phase 2: Stub the coverage
 
-For each discovered user flow, create a `.notImplemented()` test stub in `.ripplo/tests/`:
+**Required** when running under the Ripplo plugin: before exiting plan mode, commit a `.notImplemented()` stub for every user flow this plan touches, plus any new precondition chain also marked `.notImplemented()`. The plan file must include a **"Tests to implement"** section listing the stub ids — the `ExitPlanMode` hook blocks exit otherwise.
+
+For each discovered user flow, create a `.notImplemented()` test stub in `.ripplo/tests/` **and add `import "./tests/<id>.js";` to `.ripplo/index.ts`** (the CLI only sees what that file imports):
 
 ```typescript
 ripplo
@@ -43,8 +45,8 @@ For each confirmed flow, implement the test:
 1. Read relevant source files to find real ARIA roles, button text, form fields
 2. Write the test steps using the DSL
 3. Run `npx ripplo lint` — fix all errors
-4. Run `npx ripplo run <slug>` — iterate on failures using `.ripplo/debug/` artifacts
-5. Run `npx ripplo flake-detect <slug>` — verify determinism with 10 parallel runs
+4. Run `npx ripplo run <id>` — iterate on failures using `.ripplo/debug/` artifacts
+5. Run `npx ripplo flake-detect <id>` — verify determinism with 10 parallel runs
 
 ## Determinism Rules (non-negotiable)
 
@@ -52,4 +54,4 @@ For each confirmed flow, implement the test:
 - All text assertions use exact matching. No `contains`, `startsWith`, or regex.
 - Destructure precondition data in `steps()` — never hardcode values from preconditions.
 - Every step must have `.as("description")`.
-- After a test passes, run `npx ripplo flake-detect <slug>` to verify determinism.
+- After a test passes, run `npx ripplo flake-detect <id>` to verify determinism.

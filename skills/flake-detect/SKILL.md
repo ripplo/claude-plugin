@@ -10,7 +10,7 @@ Run a test multiple times in parallel to detect flakiness.
 ## Usage
 
 ```bash
-npx ripplo flake-detect <slug> --runs=10
+npx ripplo flake-detect <id> --runs=10
 ```
 
 ## Interpreting results

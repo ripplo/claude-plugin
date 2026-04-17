@@ -13,10 +13,12 @@ In Claude Code, run:
 
 ## How It Works
 
-The plugin hooks into your agent's workflow to create a tight validation loop:
+The plugin hooks into your agent's workflow to create a tight validation loop around `.notImplemented()` stubs — the test lifecycle goes **stub in plan → implement with code → validate at stop**:
 
-- **Post-edit hook** — lints test specs on every file change, so your agent fixes issues in-line
-- **Session end hook** — validates all tests, flags unimplemented specs, and runs the full suite before your agent signs off
+- **UserPromptSubmit (plan mode)** — reminds the agent of existing `.notImplemented()` stubs so the plan references them
+- **PreToolUse: ExitPlanMode** — blocks plan exit if the plan touches user-facing code but cites no `.ripplo/tests` stubs
+- **PostToolUse (Edit/Write)** — lints the DSL on `.ripplo/**` edits and flags remaining stubs on `apps/**` edits
+- **Stop** — runs `ripplo lint --require-implemented`, surfaces remaining stubs via `ripplo status --format summary`, and runs only the tests changed this session
 
 Your agent writes deterministic, parallelizable tests that verify your app works end-to-end. No flaky tests, no shared state, no ordering dependencies.
 
