@@ -20,6 +20,7 @@ Mount the precondition endpoints into the application server and wire `.ripplo/r
 5. **Wire the adapter** following the matching pattern from the README. The adapter takes a required `enabled: boolean` flag — pass `process.env.ENABLE_RIPPLO_TESTING === "true"` (or equivalent) so it cannot be enabled in production by accident. When `enabled` is false the adapter mounts a no-op handler.
 6. **Create or update `.ripplo/ripplo.ts`** with `createRipplo({ appUrl, preconditionsUrl, projectId, webhookSecret })`. The `preconditionsUrl` must match the prefix you mounted in step 5. **This is the only `createRipplo(...)` call in the entire app** — everywhere else (server adapter wiring, precondition implementations) must import the instance from `.ripplo/ripplo.ts`. Calling `createRipplo()` twice throws at runtime.
 7. **Verify** by running `npx ripplo doctor`. Resolve any reported issues before handing off.
+8. **Next step**: once doctor is green, invoke `/ripplo:explore` to plan test coverage, or `/ripplo:create` to add a single test.
 
 ## Adapter cheatsheet
 

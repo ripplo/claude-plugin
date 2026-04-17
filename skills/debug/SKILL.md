@@ -19,11 +19,23 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
    - `console.log` — errors/warnings around the failure timestamp
    - `network.jsonl` — failed requests or unexpected responses
    - `page-errors.log` — uncaught JavaScript exceptions
+   - `steps/<failedIndex>/screenshot.png` — last resort. Only open after the text artifacts above; screenshots confirm, they don't diagnose
 
 ## Common root causes
 
 - **Wrong locator**: element not found — check accessibility tree, re-read component source
 - **Race condition**: action fires before page transition — add assertion before the action
 - **Precondition issue**: state not set up correctly — check storage.json for auth/session
-- **Parallel collision**: unique constraint error — precondition creates shared data instead of unique-per-run
+- **Parallel collision**: unique constraint error or "not authorized" mid-run — precondition creates shared data instead of unique-per-run, or teardown globally deletes all test data instead of only that run's. Fix the executor.
 - **App bug**: the application itself is broken — report to the user, don't work around it
+
+## Diagnosis discipline
+
+- **Text first, screenshots second.** Always grep `console.log` and `network.jsonl` before opening any image. Text is faster to search and usually more informative — screenshots only confirm what the logs already told you.
+- **Evidence before changes.** Never modify the spec without citing a specific line from a debug artifact. "I think the locator is wrong" isn't evidence; "accessibility-tree.txt line 42 shows the button has role=link not button" is.
+- **Don't weaken assertions to make a test pass.** If the failure is an app bug (unexpected API response, JS exception, broken UI), report it to the user with the evidence — failing step, expected vs actual, the relevant log/network excerpt, and source code if applicable. Removing the assertion that catches the bug is never the right fix.
+- **3-strike escape hatch.** If the same failure repeats after 3 targeted fixes informed by debug artifacts, stop and report the root cause to the user. Do not silently keep retrying — repeated failure on the same step almost always means the diagnosis is wrong, not that one more tweak will work.
+
+## Once the fix passes
+
+A single green run isn't enough — many failure classes (precondition sharing, race conditions, non-exact text) only surface under parallel load. After your fix, invoke `/ripplo:flake-detect` to verify determinism. If flakes appear, see the "Parallel safety for preconditions" section in `/ripplo:explore` — most flakes trace back to non-isolated precondition data.

@@ -42,12 +42,15 @@ Only rerun when:
 - You've made a code change intended to fix the failure, or
 - You're checking for flakiness via `/ripplo:flake-detect`.
 
-Read artifacts from `.ripplo/debug/<runId>/` in this order:
+For deeper diagnosis (categorized root causes, evidence discipline) invoke `/ripplo:debug`. Read artifacts from `.ripplo/debug/<runId>/` in this order:
 
 1. `summary.txt` — per-step pass/fail with durations; start here to locate the failed step index
-2. `error.txt` — top-level error message (e.g., dev server unreachable, config issues)
+2. `error.txt` — top-level error (dev server unreachable, config issues, etc.)
 3. `steps/<failedIndex>/dom.html` — DOM at failure point
 4. `steps/<failedIndex>/accessibility-tree.txt` — page structure / correct ARIA locators
-5. `console.log` — browser console output
-6. `network.jsonl` — network requests
-7. `page-errors.log` — uncaught JS exceptions
+5. `steps/<failedIndex>/storage.json` — auth/session state
+6. Compare with `steps/<failedIndex - 1>/` to see what changed between steps
+7. `console.log` — browser console output
+8. `network.jsonl` — network requests
+9. `page-errors.log` — uncaught JS exceptions
+10. `steps/<failedIndex>/screenshot.png` — last resort after the text artifacts

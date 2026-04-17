@@ -21,6 +21,19 @@ description: "Create a new Ripplo test spec. Use when adding a new e2e test for 
 8. Run `npx ripplo run <id>` — if it fails, read `.ripplo/debug/<runId>/` artifacts and iterate.
 9. Once passing, run `npx ripplo flake-detect <id>` to verify determinism (10 parallel runs).
 
+## What makes a good test
+
+Don't just assert the URL changed or that the button you clicked is still visible. Assert:
+
+- Correct **new** elements appear after each action (dialog opened, form rendered, success message shown, page heading changed)
+- Text content matches expectations (headings, labels, feedback messages, error messages) — use `assert.text` / `assert.value` / `assert.url` / `assert.count`, not just `assert.visible`
+- The UI reflects the mutation result (new item appears in list, counter updates, status changes)
+- Elements that should NOT be visible are gone (`assert.not.visible` for closed dialogs, cleared spinners, dismissed errors)
+
+A test that clicks a button and then asserts the same button is still visible is not a test — it verifies nothing about what the click _did_. The `tautological-post-click-assert` lint rule catches this; don't try to satisfy it by adding another `assert.visible` of the same element — verify the actual effect.
+
+When the run passes, re-read the test against its `expectedOutcome`. A test that passes but doesn't assert the outcome is not done. Run `npx ripplo lint` and fix every diagnostic before declaring done.
+
 ## Determinism Rules (non-negotiable)
 
 - Use `role()` locators exclusively. Only use `testId()` when no ARIA role exists.
@@ -30,9 +43,4 @@ description: "Create a new Ripplo test spec. Use when adding a new e2e test for 
 
 ## Iteration
 
-If a run fails:
-
-- Read `.ripplo/debug/<runId>/steps/<failedIndex>/dom.html` and `accessibility-tree.txt` for correct locators
-- Check `console.log` and `network.jsonl` for errors
-- Fix the root cause, not the symptom — don't weaken assertions
-- If the failure is an app bug (not the test), report it to the user
+If a run fails, invoke `/ripplo:debug` — it has the full diagnosis checklist, artifact order, and evidence discipline. Do not weaken assertions to make a test pass; if it's an app bug, report with evidence.
