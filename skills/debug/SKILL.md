@@ -8,14 +8,16 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
 ## Steps
 
 1. Browse `.ripplo/tests/` (including subfolders) to find the test. Each test declares its id via `.test("<id>")`.
-2. Run `npx ripplo run <id>` if the test hasn't been run recently.
-3. Read debug artifacts from `.ripplo/debug/<runId>/`:
+2. Run `npx ripplo run <id>` if the test hasn't been run recently. **Do not re-run to reshape stdout** — never pipe `npx ripplo run` through `grep`/`tail`/`head`/`paste` to find the failed step or pair ids with results. The failure data is already on disk; Read it.
+3. Read debug artifacts from `.ripplo/debug/<runId>/` in this order:
+   - `summary.txt` — per-step pass/fail with durations; start here to locate the failed step index
+   - `error.txt` — top-level error (dev server unreachable, config issues, etc.)
    - `steps/<failedIndex>/dom.html` — inspect the actual DOM at the failing step
    - `steps/<failedIndex>/accessibility-tree.txt` — find correct ARIA roles and locators
    - `steps/<failedIndex>/storage.json` — check auth state and session data
    - Compare with `steps/<failedIndex - 1>/` to see what changed
-   - `console.log` — grep for errors/warnings around the failure timestamp
-   - `network.jsonl` — check for failed requests or unexpected responses
+   - `console.log` — errors/warnings around the failure timestamp
+   - `network.jsonl` — failed requests or unexpected responses
    - `page-errors.log` — uncaught JavaScript exceptions
 
 ## Common root causes
