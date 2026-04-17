@@ -83,6 +83,11 @@ const webhookSecret = ripplo.getConfig().webhookSecret;
 
 See the **Custom integration (raw engine)** section of `packages/testing/README.md` for the full handler example and the list of caller responsibilities.
 
+## Gotchas
+
+- **Run `npx ripplo` from the directory containing `.ripplo/`** (typically the repo root).
+- **Put `ENABLE_RIPPLO_TESTING=true` and `RIPPLO_WEBHOOK_SECRET=<secret>` in a gitignored, local-only env file for the app that hosts the adapter** — typically `.env.local` in the app directory, or whichever file the framework's dev server loads by default (e.g. `.env.local` in the app dir for Next.js, `.env.development.local` for Vite, `.env` in the server dir for Express/Fastify if that's what your dev runner reads). Do not put these in the repo root `.env` unless that is actually what your dev server loads. After adding or changing them, restart the dev server so it picks them up.
+
 ## Rules
 
 - **Never bypass the webhook signature check** or hardcode a secret in source. The secret comes from the environment.
