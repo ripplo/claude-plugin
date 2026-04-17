@@ -7,16 +7,22 @@ description: "Run Ripplo e2e tests. Use when executing tests."
 
 ## Usage
 
-Run all tests:
+**Default to running the smallest relevant set of tests, not the full suite.** `npx ripplo run` with no ids runs every test — that is minutes of compute and should be rare. Bias toward scoped runs:
 
-```bash
-npx ripplo run
-```
+- Fixed a single test? Rerun just that test: `npx ripplo run <id>`.
+- Made a code change touching a feature area? Rerun only the tests covering that area (browse `.ripplo/tests/` and pass their ids).
+- Only run the full suite when the user explicitly asks for it, or as a final green-light check after scoped runs already pass.
 
 Run specific tests:
 
 ```bash
 npx ripplo run <id1> <id2>
+```
+
+Run all tests (use sparingly — see above):
+
+```bash
+npx ripplo run
 ```
 
 To see available tests, browse `.ripplo/tests/` (including subfolders). Each test declares its id via `.test("<id>")` in the file — grep for that if you're looking for a specific one.
