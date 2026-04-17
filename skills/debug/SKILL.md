@@ -28,6 +28,7 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
 - **Precondition issue**: state not set up correctly — check storage.json for auth/session
 - **Parallel collision**: unique constraint error or "not authorized" mid-run — precondition creates shared data instead of unique-per-run, or teardown globally deletes all test data instead of only that run's. Fix the executor.
 - **App bug**: the application itself is broken — report to the user, don't work around it
+- **Stale lockfile** (server-side 422 on push, or "unsupported lockfile version" error): `.ripplo/ripplo.lock` is missing, stale, or newer than the server supports. Run `npx ripplo compile` locally and commit the result — do not hand-edit the lockfile.
 
 ## Diagnosis discipline
 

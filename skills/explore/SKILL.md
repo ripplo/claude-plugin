@@ -115,9 +115,10 @@ Then:
 
 1. Read relevant source files to find real ARIA roles, button text, form fields
 2. Write the test steps using the DSL
-3. Run `npx ripplo lint` — fix all errors
+3. Run `npx ripplo lint` — fix all errors (this also regenerates `.ripplo/ripplo.lock`; you can also run `npx ripplo compile` explicitly)
 4. Run `npx ripplo run <id>` — if it fails, invoke `/ripplo:debug` for the full diagnosis checklist
-5. Invoke `/ripplo:flake-detect` — verify determinism with parallel runs
+5. Commit the updated `.ripplo/ripplo.lock` alongside your test changes — the server reads the lockfile on push to sync workflows, and the pre-commit hook will block commits that skip the regeneration
+6. Invoke `/ripplo:flake-detect` — verify determinism with parallel runs
 
 ## Parallel safety for preconditions
 

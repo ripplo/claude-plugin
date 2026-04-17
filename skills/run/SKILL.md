@@ -32,6 +32,7 @@ To see available tests, browse `.ripplo/tests/` (including subfolders). Each tes
 - `ripplo` dev session must be running (`npx ripplo` in a terminal)
 - Dev server must be running at the `appUrl` configured in `createRipplo()` (`.ripplo/ripplo.ts`)
 - Run `npx ripplo doctor` to verify all requirements
+- `.ripplo/ripplo.lock` must be up to date. If you've edited anything in `.ripplo/*.ts` without running the watcher, run `npx ripplo compile` (or `npx ripplo lint`, which also writes the lockfile) before running tests remotely — the Ripplo server reads the committed lockfile.
 
 ## On failure
 

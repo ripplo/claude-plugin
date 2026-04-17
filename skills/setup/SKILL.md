@@ -19,8 +19,31 @@ Mount the precondition endpoints into the application server and wire `.ripplo/r
 4. **Install `@ripplo/testing`** in the chosen app if it isn't already a dependency. Use the workspace's package manager (check `packageManager` in root `package.json` or the lockfile).
 5. **Wire the adapter** following the matching pattern from the README. The adapter takes a required `enabled: boolean` flag — pass `process.env.ENABLE_RIPPLO_TESTING === "true"` (or equivalent) so it cannot be enabled in production by accident. When `enabled` is false the adapter mounts a no-op handler.
 6. **Create or update `.ripplo/ripplo.ts`** with `createRipplo({ appUrl, preconditionsUrl, projectId, webhookSecret })`. The `preconditionsUrl` must match the prefix you mounted in step 5. **This is the only `createRipplo(...)` call in the entire app** — everywhere else (server adapter wiring, precondition implementations) must import the instance from `.ripplo/ripplo.ts`. Calling `createRipplo()` twice throws at runtime.
-7. **Verify** by running `npx ripplo doctor`. Resolve any reported issues before handing off.
-8. **Next step**: once doctor is green, invoke `/ripplo:explore` to plan test coverage, or `/ripplo:create` to add a single test.
+7. **Install the pre-commit hook** (see "Pre-commit hook" below). This keeps `.ripplo/ripplo.lock` in sync with the DSL; without it, webhook syncs to the Ripplo server can fall behind or fail.
+8. **Verify** by running `npx ripplo doctor`. Resolve any reported issues before handing off.
+9. **Next step**: once doctor is green, invoke `/ripplo:explore` to plan test coverage, or `/ripplo:create` to add a single test.
+
+## Lockfile: `.ripplo/ripplo.lock`
+
+`ripplo compile` (and `ripplo lint`, and the dashboard's file watcher) write `.ripplo/ripplo.lock` — the compiled DSL (graph + tests) serialized as JSON. **This file is committed** alongside the source in `.ripplo/`; the Ripplo server reads it on GitHub push webhooks instead of executing user TypeScript server-side. `.gitattributes` marks it `linguist-generated=true` so GitHub collapses the diff by default.
+
+If the lockfile is missing or stale, the server webhook returns a 422 and the branch does not sync. `ripplo doctor` surfaces staleness as an error; the pre-commit hook below prevents the stale state from being committed in the first place.
+
+## Pre-commit hook
+
+Add the following to `.git/hooks/pre-commit` (and `chmod +x` it):
+
+```sh
+#!/bin/sh
+if git diff --cached --name-only | grep -q '^\.ripplo/.*\.ts$'; then
+  npx ripplo compile --check || {
+    echo "ripplo.lock is stale — run \`npx ripplo compile\` and stage the result."
+    exit 1
+  }
+fi
+```
+
+If the repo already has a `pre-commit` hook, append the `if` block to it rather than overwriting. If the project uses `husky`, `lefthook`, or `simple-git-hooks`, add the same `npx ripplo compile --check` invocation (gated on staged `.ripplo/**/*.ts` files) to that tool's config instead.
 
 ## Adapter cheatsheet
 

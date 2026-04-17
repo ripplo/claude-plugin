@@ -41,7 +41,7 @@ Install and set up the [Ripplo CLI](https://www.npmjs.com/package/ripplo) first:
 npx ripplo
 ```
 
-This authenticates, scaffolds a `.ripplo/` directory, and starts the dev dashboard.
+This authenticates, scaffolds a `.ripplo/` directory, and starts the dev dashboard. Scaffolding also writes an initial `.ripplo/ripplo.lock` — a committed, generated artifact that the Ripplo server reads on push-webhook syncs. Keep it in sync with your `.ripplo/*.ts` via `npx ripplo compile` (or the pre-commit hook the `/ripplo:setup` skill installs).
 
 ## How It Works
 

@@ -20,6 +20,7 @@ description: "Create a new Ripplo test spec. Use when adding a new e2e test for 
 7. Run `npx ripplo lint` — fix all errors before proceeding.
 8. Run `npx ripplo run <id>` — if it fails, read `.ripplo/debug/<runId>/` artifacts and iterate.
 9. Once passing, run `npx ripplo flake-detect <id>` to verify determinism (10 parallel runs).
+10. **Stage the updated `.ripplo/ripplo.lock`** alongside your test changes. `ripplo lint` writes it automatically; the pre-commit hook blocks commits where it's stale.
 
 ## What makes a good test
 
