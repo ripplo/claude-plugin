@@ -12,6 +12,11 @@ esac
 
 cd "$CLAUDE_PROJECT_DIR"
 
+# Skip silently if Ripplo isn't set up in this project.
+if [ ! -d ".ripplo" ]; then
+  exit 0
+fi
+
 SUMMARY=$(npx ripplo status --format summary 2>/dev/null | grep '^tests:' || true)
 
 if [ -n "$SUMMARY" ]; then

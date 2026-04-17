@@ -1,7 +1,7 @@
 {
   "name": "ripplo",
   "description": "E2E testing — lint, run, and enforce test coverage",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "author": { "name": "Ripplo", "url": "https://ripplo.ai" },
   "repository": "https://github.com/ripplo/claude-plugin",
   "homepage": "https://ripplo.ai",

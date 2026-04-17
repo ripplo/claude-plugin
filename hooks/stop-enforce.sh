@@ -8,6 +8,12 @@ if [ -n "$AGENT_ID" ]; then
 fi
 
 cd "$CLAUDE_PROJECT_DIR"
+
+# Skip silently if Ripplo isn't set up in this project.
+if [ ! -d ".ripplo" ]; then
+  exit 0
+fi
+
 ERRORS=""
 
 CHANGED_TESTS=$(git diff --name-only HEAD -- .ripplo/tests 2>/dev/null | awk -F/ '/\.ts$/ { sub(/\.ts$/, "", $NF); print $NF }')
