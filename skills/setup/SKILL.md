@@ -5,33 +5,31 @@ description: "Wire @ripplo/testing into the application server. Use when initial
 
 # Ripplo Setup
 
-Mount the precondition endpoints into the application server and wire `.ripplo/ripplo.ts` to point at them.
+Mount the precondition endpoints into the app server and wire `.ripplo/ripplo.ts` to point at them.
 
-## Steps
+## Procedure
 
-1. **Read** `packages/testing/README.md` (the "Server Setup" section) for the adapter usage reference.
-2. **Detect the framework** — look at `package.json` and the entry point of the server app:
-   - `express` in dependencies → Express adapter (`@ripplo/testing/express`)
-   - `fastify` in dependencies → Fastify adapter (`@ripplo/testing/fastify`)
-   - `next` in dependencies → Next.js adapter (`@ripplo/testing/nextjs`, App Router)
-   - Anything else (Hono, Koa, Bun, Deno, Cloudflare Workers, etc.) → use the **raw engine** path (see "Custom integration" below)
-3. **Confirm with the user** before installing or wiring anything: which app should host the endpoints, what path prefix to use (default `/ripplo/preconditions`), and the env-var name for the webhook secret (default `RIPPLO_WEBHOOK_SECRET`). For raw-engine paths, also confirm the framework before generating the handler.
-4. **Install `@ripplo/testing`** in the chosen app if it isn't already a dependency. Use the workspace's package manager (check `packageManager` in root `package.json` or the lockfile).
-5. **Wire the adapter** following the matching pattern from the README. The adapter takes a required `enabled: boolean` flag — pass `process.env.ENABLE_RIPPLO_TESTING === "true"` (or equivalent) so it cannot be enabled in production by accident. When `enabled` is false the adapter mounts a no-op handler.
-6. **Create or update `.ripplo/ripplo.ts`** with `createRipplo({ appUrl, preconditionsUrl, projectId, webhookSecret })`. The `preconditionsUrl` must match the prefix you mounted in step 5. **This is the only `createRipplo(...)` call in the entire app** — everywhere else (server adapter wiring, precondition implementations) must import the instance from `.ripplo/ripplo.ts`. Calling `createRipplo()` twice throws at runtime.
-7. **Install the pre-commit hook** (see "Pre-commit hook" below). This keeps `.ripplo/ripplo.lock` in sync with the DSL; without it, webhook syncs to the Ripplo server can fall behind or fail.
-8. **Verify** by running `npx ripplo doctor`. Resolve any reported issues before handing off.
-9. **Next step**: once doctor is green, invoke `/ripplo:explore` to plan test coverage, or `/ripplo:create` to add a single test.
+1. Read `packages/testing/README.md` ("Server Setup") for adapter usage.
+2. **Detect framework** from `package.json`:
+   - `express` → `@ripplo/testing/express`
+   - `fastify` → `@ripplo/testing/fastify`
+   - `next` → `@ripplo/testing/nextjs` (App Router)
+   - Anything else (Hono, Koa, Bun, Deno, Workers) → raw engine, see "Custom integration" below.
+3. **Confirm with the user**: which app hosts endpoints, path prefix (default `/ripplo/preconditions`), webhook secret env var (default `RIPPLO_WEBHOOK_SECRET`), and (for raw-engine) the framework before generating the handler.
+4. Install `@ripplo/testing` in the chosen app using the workspace's package manager.
+5. **Wire the adapter.** Always pass `enabled: process.env.ENABLE_RIPPLO_TESTING === "true"` (or equivalent) — never hardcode `true`. When false the adapter mounts a no-op so endpoints can't ship to prod.
+6. **Create/update `.ripplo/ripplo.ts`** with `createRipplo({ appUrl, preconditionsUrl, projectId, webhookSecret })`. **This is the only `createRipplo()` call in the entire app** — calling it twice throws. All other code (adapter wiring, precondition impls) imports the instance from `.ripplo/ripplo.ts`. The `preconditionsUrl` suffix must match the prefix mounted in step 5.
+7. Install the pre-commit hook (below).
+8. `npx ripplo doctor` — resolve all issues.
+9. Once green, invoke `/ripplo:explore` (plan coverage) or `/ripplo:create` (single test).
 
-## Lockfile: `.ripplo/ripplo.lock`
+## Lockfile
 
-`ripplo compile` (and `ripplo lint`, and the dashboard's file watcher) write `.ripplo/ripplo.lock` — the compiled DSL (graph + tests) serialized as JSON. **This file is committed** alongside the source in `.ripplo/`; the Ripplo server reads it on GitHub push webhooks instead of executing user TypeScript server-side. `.gitattributes` marks it `linguist-generated=true` so GitHub collapses the diff by default.
+`ripplo compile`/`lint` (and the dashboard watcher) write `.ripplo/ripplo.lock` — the compiled DSL serialized as JSON. **Committed.** The Ripplo server reads it on GitHub push webhooks instead of executing user TypeScript. `.gitattributes` marks it `linguist-generated=true` so GitHub collapses the diff.
 
-If the lockfile is missing or stale, the server webhook returns a 422 and the branch does not sync. `ripplo doctor` surfaces staleness as an error; the pre-commit hook below prevents the stale state from being committed in the first place.
+If stale or missing, the webhook returns 422 and the branch doesn't sync. The pre-commit hook below prevents stale state from being committed.
 
 ## Pre-commit hook
-
-Add the following to `.git/hooks/pre-commit` (and `chmod +x` it):
 
 ```sh
 #!/bin/sh
@@ -43,7 +41,7 @@ if git diff --cached --name-only | grep -q '^\.ripplo/.*\.ts$'; then
 fi
 ```
 
-If the repo already has a `pre-commit` hook, append the `if` block to it rather than overwriting. If the project uses `husky`, `lefthook`, or `simple-git-hooks`, add the same `npx ripplo compile --check` invocation (gated on staged `.ripplo/**/*.ts` files) to that tool's config instead.
+If a `pre-commit` hook already exists, append the `if` block. With husky/lefthook/simple-git-hooks, add the same `npx ripplo compile --check` invocation gated on staged `.ripplo/**/*.ts` to that tool's config.
 
 ## Adapter cheatsheet
 
@@ -51,7 +49,7 @@ If the repo already has a `pre-commit` hook, append the `if` block to it rather 
 
 ```ts
 import { createExpressHandler } from "@ripplo/testing/express";
-import ripplo from "<path to .ripplo/ripplo>"; // import the existing instance — do not call createRipplo() here
+import ripplo from "<path to .ripplo/ripplo>";
 app.use(
   "/ripplo/preconditions",
   createExpressHandler({ enabled: process.env.ENABLE_RIPPLO_TESTING === "true", ripplo }),
@@ -62,7 +60,7 @@ app.use(
 
 ```ts
 import { registerFastifyHandler } from "@ripplo/testing/fastify";
-import ripplo from "<path to .ripplo/ripplo>"; // import the existing instance — do not call createRipplo() here
+import ripplo from "<path to .ripplo/ripplo>";
 await app.register(
   registerFastifyHandler({ enabled: process.env.ENABLE_RIPPLO_TESTING === "true", ripplo }),
   { prefix: "/ripplo/preconditions" },
@@ -81,11 +79,11 @@ export const PUT = createNextHandler({
 });
 ```
 
-The Next.js handler dispatches on the last URL segment (`execute-batch` / `teardown`). One dynamic route file covers both endpoints — do not create separate `execute-batch/route.ts` and `teardown/route.ts` files.
+The handler dispatches on the last URL segment (`execute-batch` / `teardown`). One dynamic route file covers both — don't split into separate route files.
 
 ### Custom integration (raw engine)
 
-For frameworks without a first-class adapter (Hono, Koa, Bun, Deno, Cloudflare Workers, etc.), use `createEngine` directly and wire two routes by hand. Always go through the exported helpers — never reimplement webhook verification or cookie serialization.
+For unsupported frameworks, use `createEngine` directly. Always go through the exported helpers — never reimplement webhook verification or cookie serialization.
 
 ```ts
 import {
@@ -98,23 +96,23 @@ import ripplo from "../.ripplo/ripplo.js";
 
 const engine = createEngine(ripplo);
 const webhookSecret = ripplo.getConfig().webhookSecret;
-// One handler for PUT /execute-batch, one for PUT /teardown.
-// Each: read raw text body → verifyWebhookSignature → JSON.parse →
-// engine.executeBatch({ appUrl }) or engine.teardown(preconditions, data) →
+// PUT /execute-batch and PUT /teardown:
+// raw text body → verifyWebhookSignature → JSON.parse →
+// engine.executeBatch({ appUrl }) | engine.teardown(preconditions, data) →
 // forward result.cookies as Set-Cookie via buildSetCookieHeader(serializeCookie(c)).
 ```
 
-See the **Custom integration (raw engine)** section of `packages/testing/README.md` for the full handler example and the list of caller responsibilities.
-
-## Gotchas
-
-- **Run `npx ripplo` from the directory containing `.ripplo/`** (typically the repo root).
-- **Put `ENABLE_RIPPLO_TESTING=true` and `RIPPLO_WEBHOOK_SECRET=<secret>` in a gitignored, local-only env file for the app that hosts the adapter** — typically `.env.local` in the app directory, or whichever file the framework's dev server loads by default (e.g. `.env.local` in the app dir for Next.js, `.env.development.local` for Vite, `.env` in the server dir for Express/Fastify if that's what your dev runner reads). Do not put these in the repo root `.env` unless that is actually what your dev server loads. After adding or changing them, restart the dev server so it picks them up.
+See `packages/testing/README.md` "Custom integration (raw engine)" for the full handler example.
 
 ## Rules
 
-- **Never bypass the webhook signature check** or hardcode a secret in source. The secret comes from the environment.
-- **Never hardcode `enabled: true`.** Bind it to an env flag like `process.env.ENABLE_RIPPLO_TESTING === "true"` — the adapter no-ops when `enabled` is false, which is how we keep the endpoints out of production.
-- **Prefer a first-class adapter when one exists.** Only use the raw engine path for unsupported frameworks. When you do, always import `verifyWebhookSignature`, `serializeCookie`, and `buildSetCookieHeader` from `@ripplo/testing` — never reimplement them or pull `standardwebhooks` directly.
-- **Never invent the path prefix.** The value passed to `app.use(...)` / `prefix` / the route file path must equal the `preconditionsUrl` suffix in `.ripplo/ripplo.ts`. Mismatches silently fail at runtime.
-- **One `createRipplo()` call per app.** It lives in `.ripplo/ripplo.ts`. Server-side adapter wiring and precondition implementations must `import ripplo from` that file — never create a second instance. Calling `createRipplo()` twice in the same process throws.
+- Never bypass webhook signature checking or hardcode the secret.
+- Never hardcode `enabled: true`. Bind it to an env flag.
+- Prefer a first-class adapter; only use raw engine for unsupported frameworks. Always import the helpers — never reimplement them or pull `standardwebhooks` directly.
+- The path prefix in `app.use(...)` / `prefix` / route file path **must match** the `preconditionsUrl` suffix in `.ripplo/ripplo.ts`. Mismatches silently fail.
+- One `createRipplo()` per app, in `.ripplo/ripplo.ts`. Everywhere else imports it.
+
+## Gotchas
+
+- Run `npx ripplo` from the directory containing `.ripplo/` (typically the repo root).
+- Put `ENABLE_RIPPLO_TESTING=true` and `RIPPLO_WEBHOOK_SECRET=<secret>` in the gitignored env file the host app's dev server actually loads (e.g. `.env.local` in the Next.js app dir, `.env.development.local` for Vite, `.env` in the Express/Fastify server dir if that's what your dev runner reads). Restart the dev server after changes.

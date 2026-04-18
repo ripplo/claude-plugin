@@ -15,23 +15,55 @@ In Claude Code, run:
 
 The plugin hooks into your agent's workflow to create a tight validation loop around `.notImplemented()` stubs — the test lifecycle goes **stub in plan → implement with code → validate at stop**:
 
-- **UserPromptSubmit (plan mode)** — reminds the agent of existing `.notImplemented()` stubs so the plan references them
+- **UserPromptSubmit** — reminds the agent of `.notImplemented()` stubs during plan mode, and nudges mid-session when `watchPaths` code has drifted from `.ripplo/tests` updates
 - **PreToolUse: ExitPlanMode** — blocks plan exit if the plan touches user-facing code but cites no `.ripplo/tests` stubs
-- **PostToolUse (Edit/Write)** — lints the DSL on `.ripplo/**` edits and flags remaining stubs on `apps/**` edits
-- **Stop** — runs `ripplo lint --require-implemented`, surfaces remaining stubs via `ripplo status --format summary`, and runs only the tests changed this session
+- **PostToolUse (Edit/Write)** — lints the DSL on `.ripplo/**` edits and flags remaining stubs on edits matching `watchPaths`
+- **Stop** — lints, surfaces remaining stubs, runs changed tests, and **blocks on coverage drift**: user-facing changes with no corresponding `.ripplo/tests` update
+
+All hook logic lives in the `ripplo` CLI (`ripplo hook <name>`) — no shell scripts, no `jq`, Windows-safe.
+
+### Configuring watch paths
+
+By default the plugin treats common web source globs as user-facing (`src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, `components/**`) and ignores generated/vendor output. Override in `.ripplo/ripplo.ts`:
+
+```ts
+createRipplo({
+  // ...existing config
+  watchPaths: ["app/frontend/**", "lib/controllers/**"],
+  ignorePaths: ["**/*.gen.*", "**/vendor/**"],
+});
+```
+
+### Testing Scope
+
+Scope is the agent's working memory for what user flows the current session should cover. It lives in the dev-session DB (no local file) and is mutated only via `npx ripplo scope add|link|remove`. Agent scope items must reference an existing test (stub or implemented); free-text intents come from the user via the dashboard, and the agent's job is to stub a matching test and `scope link` it.
+
+The user sees live scope in Developer Mode → Testing Scope and can pause hooks entirely from the UI. Agents should consult the `/ripplo:scope` skill when planning work or when a drift nudge fires.
+
+### Coverage drift escape hatch
+
+If a change is genuinely test-exempt (pure refactor, infra, internal tooling), write `.ripplo/.local/drift-exempt`:
+
+```
+<sha from `ripplo hook coverage-nudge` error message>
+<one-line reason>
+```
+
+The exemption auto-invalidates if the diff changes.
 
 Your agent writes deterministic, parallelizable tests that verify your app works end-to-end. No flaky tests, no shared state, no ordering dependencies.
 
 ## Skills
 
-| Skill                  | Description                                           |
-| ---------------------- | ----------------------------------------------------- |
-| `/ripplo:setup`        | Wire the precondition adapter into your app server    |
-| `/ripplo:explore`      | Crawl your codebase and generate test specs           |
-| `/ripplo:create`       | Create a new test spec                                |
-| `/ripplo:run`          | Run tests in parallel                                 |
-| `/ripplo:debug`        | Debug failures using DOM snapshots and network traces |
-| `/ripplo:flake-detect` | Run N parallel executions to detect flaky tests       |
+| Skill                  | Description                                                          |
+| ---------------------- | -------------------------------------------------------------------- |
+| `/ripplo:setup`        | Wire the precondition adapter into your app server                   |
+| `/ripplo:explore`      | Crawl your codebase and generate test specs                          |
+| `/ripplo:create`       | Create a new test spec                                               |
+| `/ripplo:scope`        | Manage Testing Scope (visible to the user in Developer Mode)         |
+| `/ripplo:run`          | Run tests in parallel                                                |
+| `/ripplo:debug`        | Debug failures using DOM snapshots and network traces                |
+| `/ripplo:flake-detect` | Reproduce a suspected flaky test under parallel load (use sparingly) |
 
 ## Prerequisites
 

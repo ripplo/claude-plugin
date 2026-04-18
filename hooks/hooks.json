@@ -5,7 +5,15 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/plan-reminder.sh"
+            "command": "npx ripplo hook plan-reminder"
+          },
+          {
+            "type": "command",
+            "command": "npx ripplo hook coverage-nudge"
+          },
+          {
+            "type": "command",
+            "command": "npx ripplo hook scope-reminder"
           }
         ]
       }
@@ -16,11 +24,11 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-edit-lint.sh"
+            "command": "npx ripplo hook post-edit-lint"
           },
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-edit-flag-stubs.sh"
+            "command": "npx ripplo hook post-edit-flag-stubs"
           }
         ]
       }
@@ -31,7 +39,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/exit-plan-gate.sh"
+            "command": "npx ripplo hook exit-plan-gate"
           }
         ]
       }
@@ -41,7 +49,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "${CLAUDE_PLUGIN_ROOT}/hooks/stop-enforce.sh",
+            "command": "npx ripplo hook stop-enforce",
             "timeout": 60000
           }
         ]
