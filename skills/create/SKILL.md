@@ -36,9 +36,9 @@ Re-read each test against its `expectedOutcome` before declaring done.
 
 Use `assert.backend(observer, params)` when the UI is optimistic, the effect is async (jobs, webhooks, pubsub), or the write-path is load-bearing. Declare observers under `.ripplo/observers/<name>.ts` as shells with `.input<T>().budget("fast" | "slow" | "async").contract()`, then implement server-side with `ripplo.implementObserver(handle, async (ctx, params) => ctx.pass() | ctx.retry(reason) | ctx.fail(reason))`.
 
-- **Budget tiers:** `"fast"` (3s, default) for sync DB reads; `"slow"` (30s) for queue drains; `"async"` (120s) for webhooks, workers, LLM calls. Pick the smallest tier that fits.
-- **`ctx.retry(reason)`** for transient conditions (not-yet-committed, infra hiccup). Runtime polls until budget.
-- **`ctx.fail(reason)`** for invariant violations (further polling cannot succeed). Stops immediately.
+- **Budget tiers:** `"fast"` (5s, default) for sync DB reads; `"slow"` (30s) for queue drains; `"async"` (120s) for webhooks, workers, LLM calls. Pick the smallest tier that fits.
+- **`ctx.retry(reason)` — default.** Any condition that may resolve on a later poll: not-yet-committed row, status in transition, queue draining, side effect in flight. Runtime polls until budget; the last retry reason surfaces in the failure detail when the budget exhausts. When in doubt, use `retry`.
+- **`ctx.fail(reason)` — rare.** Only when further polling cannot succeed (invariant violated, contradictory/forbidden state). Stops immediately after one poll, which produces a confusing "failed after 1 poll" result if used for a transient. Everything that isn't a hard invariant is `retry`.
 - Observers return a boolean outcome only — if a test needs to _read_ state for reuse, that's a precondition, not an observer.
 - Import the observer handle in the test and use it: `assert.backend(orgNameIs, { orgId, expectedName }).as("assert org persisted")`.
 
