@@ -25,6 +25,10 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
 - **Race condition** — action fires before page settles; add an assertion before the action.
 - **Precondition issue** — state not set up; check `storage.json`.
 - **Parallel collision** — unique-constraint or 401 mid-run; precondition isn't isolating per-run, or teardown deletes globally. Fix the precondition.
+- **Observer failure** — `assert.backend(...)` step failed. The detail line reports the shape clearly:
+  - `failed: <reason> (after N poll(s))` → observer returned `ctx.fail(...)` — invariant violated; investigate the backend state, don't just rerun.
+  - `budget "fast|slow|async" exhausted after N poll(s); last: <reason>` → observer stayed in `ctx.retry(...)` the whole budget — the async work never finished, OR the budget tier is too short for this pipeline. Check whether the write actually happened (logs, DB), then decide: fix the app, or bump the observer's `.budget(...)` to a longer tier.
+  - `transport error: <reason>` → engine adapter unreachable / 4xx / 5xx — config issue, not an app bug.
 - **App bug** — report to the user with evidence; don't work around.
 - **Stale lockfile** (422 on push, "unsupported lockfile version") — `npx ripplo compile` and commit. Never hand-edit the lockfile.
 

@@ -1,11 +1,11 @@
 ---
 name: setup
-description: "Wire @ripplo/testing into the application server. Use when initializing Ripplo in a project for the first time, or when the precondition endpoints are not yet mounted (e.g. `npx ripplo doctor` reports them missing)."
+description: "Wire @ripplo/testing into the application server. Use when initializing Ripplo in a project for the first time, or when the engine endpoint is not yet mounted (e.g. `npx ripplo doctor` reports them missing)."
 ---
 
 # Ripplo Setup
 
-Mount the precondition endpoints into the app server and wire `.ripplo/ripplo.ts` to point at them.
+Mount the engine endpoint into the app server and wire `.ripplo/ripplo.ts` to point at them.
 
 ## Procedure
 
@@ -15,10 +15,10 @@ Mount the precondition endpoints into the app server and wire `.ripplo/ripplo.ts
    - `fastify` → `@ripplo/testing/fastify`
    - `next` → `@ripplo/testing/nextjs` (App Router)
    - Anything else (Hono, Koa, Bun, Deno, Workers) → raw engine, see "Custom integration" below.
-3. **Confirm with the user**: which app hosts endpoints, path prefix (default `/ripplo/preconditions`), webhook secret env var (default `RIPPLO_WEBHOOK_SECRET`), and (for raw-engine) the framework before generating the handler.
+3. **Confirm with the user**: which app hosts endpoints, path prefix (default `/ripplo`), webhook secret env var (default `RIPPLO_WEBHOOK_SECRET`), and (for raw-engine) the framework before generating the handler.
 4. Install `@ripplo/testing` in the chosen app using the workspace's package manager.
 5. **Wire the adapter.** Always pass `enabled: process.env.ENABLE_RIPPLO_TESTING === "true"` (or equivalent) — never hardcode `true`. When false the adapter mounts a no-op so endpoints can't ship to prod.
-6. **Create/update `.ripplo/ripplo.ts`** with `createRipplo({ appUrl, preconditionsUrl, projectId, webhookSecret })`. **This is the only `createRipplo()` call in the entire app** — calling it twice throws. All other code (adapter wiring, precondition impls) imports the instance from `.ripplo/ripplo.ts`. The `preconditionsUrl` suffix must match the prefix mounted in step 5.
+6. **Create/update `.ripplo/ripplo.ts`** with `createRipplo({ appUrl, engineUrl, projectId, webhookSecret })`. **This is the only `createRipplo()` call in the entire app** — calling it twice throws. All other code (adapter wiring, precondition impls) imports the instance from `.ripplo/ripplo.ts`. The `engineUrl` suffix must match the prefix mounted in step 5.
 7. Install the pre-commit hook (below).
 8. `npx ripplo doctor` — resolve all issues.
 9. Once green, invoke `/ripplo:explore` (plan coverage) or `/ripplo:create` (single test).
@@ -51,7 +51,7 @@ If a `pre-commit` hook already exists, append the `if` block. With husky/lefthoo
 import { createExpressHandler } from "@ripplo/testing/express";
 import ripplo from "<path to .ripplo/ripplo>";
 app.use(
-  "/ripplo/preconditions",
+  "/ripplo",
   createExpressHandler({ enabled: process.env.ENABLE_RIPPLO_TESTING === "true", ripplo }),
 );
 ```
@@ -63,14 +63,14 @@ import { registerFastifyHandler } from "@ripplo/testing/fastify";
 import ripplo from "<path to .ripplo/ripplo>";
 await app.register(
   registerFastifyHandler({ enabled: process.env.ENABLE_RIPPLO_TESTING === "true", ripplo }),
-  { prefix: "/ripplo/preconditions" },
+  { prefix: "/ripplo" },
 );
 ```
 
 ### Next.js (App Router)
 
 ```ts
-// app/ripplo/preconditions/[action]/route.ts
+// app/ripplo/[action]/route.ts
 import { createNextHandler } from "@ripplo/testing/nextjs";
 import ripplo from "@/.ripplo/ripplo";
 export const PUT = createNextHandler({
@@ -79,7 +79,16 @@ export const PUT = createNextHandler({
 });
 ```
 
-The handler dispatches on the last URL segment (`execute-batch` / `teardown`). One dynamic route file covers both — don't split into separate route files.
+The handler dispatches on the last URL segment (`execute-preconditions`, `execute-observer`, or `teardown-preconditions`). One dynamic route file covers them — don't split into separate route files.
+
+## Preconditions vs. observers
+
+The engine endpoint hosts two primitives:
+
+- **Preconditions** — test data setup/teardown (`.ripplo/preconditions/*.ts`). Declared on the DSL side with `.contract<T>()`, implemented on the server side with `ripplo.implementPrecondition(handle, { setup, teardown })`.
+- **Observers** — backend state assertions mid-test (`.ripplo/observers/*.ts`). Declared with `.observer(name).input<T>().budget("fast" | "slow" | "async").contract()`, implemented with `ripplo.implementObserver(handle, async (ctx, params) => ctx.pass() | ctx.retry(reason) | ctx.fail(reason))`. Used in tests via `assert.backend(observerHandle, params)`.
+
+Both live alongside the same `ripplo` instance; `ripplo.implementPrecondition` and `ripplo.implementObserver` are distinct methods (do not conflate).
 
 ### Custom integration (raw engine)
 
@@ -96,7 +105,7 @@ import ripplo from "../.ripplo/ripplo.js";
 
 const engine = createEngine(ripplo);
 const webhookSecret = ripplo.getConfig().webhookSecret;
-// PUT /execute-batch and PUT /teardown:
+// PUT /execute-preconditions, PUT /execute-observer, PUT /teardown-preconditions:
 // raw text body → verifyWebhookSignature → JSON.parse →
 // engine.executeBatch({ appUrl }) | engine.teardown(preconditions, data) →
 // forward result.cookies as Set-Cookie via buildSetCookieHeader(serializeCookie(c)).
@@ -109,7 +118,7 @@ See `packages/testing/README.md` "Custom integration (raw engine)" for the full 
 - Never bypass webhook signature checking or hardcode the secret.
 - Never hardcode `enabled: true`. Bind it to an env flag.
 - Prefer a first-class adapter; only use raw engine for unsupported frameworks. Always import the helpers — never reimplement them or pull `standardwebhooks` directly.
-- The path prefix in `app.use(...)` / `prefix` / route file path **must match** the `preconditionsUrl` suffix in `.ripplo/ripplo.ts`. Mismatches silently fail.
+- The path prefix in `app.use(...)` / `prefix` / route file path **must match** the `engineUrl` suffix in `.ripplo/ripplo.ts`. Mismatches silently fail.
 - One `createRipplo()` per app, in `.ripplo/ripplo.ts`. Everywhere else imports it.
 
 ## Gotchas

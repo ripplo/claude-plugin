@@ -25,11 +25,26 @@ Don't just assert the URL changed or that the button you clicked is still visibl
 - **New** elements that appear post-action (dialog opened, success message, page heading)
 - Text content (`assert.text` / `assert.value` / `assert.url` / `assert.count` — not just `assert.visible`)
 - The mutation result reflected in UI (new list item, counter delta, status change)
+- **Backend state** when a UI-only check would miss async side effects (`assert.backend(observerHandle, params)` — see "Observers" below)
 - Things that should be gone (`assert.not.visible` for closed dialogs, cleared spinners)
 
 A test that clicks a button and asserts the same button still exists verifies nothing. The `tautological-post-click-assert` lint rule catches this — fix by asserting the actual effect, not by adding another `assert.visible` of the same element.
 
 Re-read each test against its `expectedOutcome` before declaring done.
+
+## Observers (backend state assertions)
+
+Use `assert.backend(observer, params)` when the UI is optimistic, the effect is async (jobs, webhooks, pubsub), or the write-path is load-bearing. Declare observers under `.ripplo/observers/<name>.ts` as shells with `.input<T>().budget("fast" | "slow" | "async").contract()`, then implement server-side with `ripplo.implementObserver(handle, async (ctx, params) => ctx.pass() | ctx.retry(reason) | ctx.fail(reason))`.
+
+- **Budget tiers:** `"fast"` (3s, default) for sync DB reads; `"slow"` (30s) for queue drains; `"async"` (120s) for webhooks, workers, LLM calls. Pick the smallest tier that fits.
+- **`ctx.retry(reason)`** for transient conditions (not-yet-committed, infra hiccup). Runtime polls until budget.
+- **`ctx.fail(reason)`** for invariant violations (further polling cannot succeed). Stops immediately.
+- Observers return a boolean outcome only — if a test needs to _read_ state for reuse, that's a precondition, not an observer.
+- Import the observer handle in the test and use it: `assert.backend(orgNameIs, { orgId, expectedName }).as("assert org persisted")`.
+
+**Lint enforces observers on backend mutations.** The `mutation-without-observer-coverage` rule flags any step that looks like it mutates server state (save/create/delete/update/etc. clicks, uploads, dialog accepts) if no `assert.backend(...)` follows before the next mutation or end of test. Fix by adding a real observer — do NOT silence the rule unless the step genuinely has zero backend effect. For truly client-only steps (cancel a dialog, toggle a display-only control, pick a sort option), pass `{ uiOnly: true }` to the step factory or, for whole-test presentation flows, `ripplo.test(id, { uiOnly: true })`. Always prefer an observer over `uiOnly`.
+
+The `observer-params-reference-variables` rule flags observers whose params are all static strings while the test declares precondition variables — fix by referencing the precondition data (e.g. `expectedName: project.name`).
 
 ## Determinism (non-negotiable)
 

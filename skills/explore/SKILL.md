@@ -40,6 +40,16 @@ Skip:
 
 Coverage check: every interactive component covered or explicitly excluded; CRUD per core entity; role-specific actions if multi-role; empty/conditional states represented.
 
+### Flag flows that need a backend observer
+
+During inventory, flag each mutation where the UI doesn't fully reflect the backend effect. These need `assert.backend(observerHandle, params)` in addition to UI assertions:
+
+- **Load-bearing writes** where the row/record in the DB is the real thing being tested (e.g. org rename persisted, project archived, invite created).
+- **Async side effects** — email sent, webhook fired, queue job enqueued, worker processed, LLM call resolved.
+- **Cross-entity effects** — mutation touches multiple rows or triggers cascading state (membership changes, plan upgrades).
+
+For each flagged flow, plan to declare a matching observer under `.ripplo/observers/<name>.ts`. Pick the smallest budget tier that fits: `"fast"` (sync DB reads, default), `"slow"` (queue drains ~30s), `"async"` (webhooks/workers/LLM ~120s). `/ripplo:create` owns the observer authoring details.
+
 ## Phase 3: Stub
 
 For each flow, create a `.notImplemented()` stub in `.ripplo/tests/` and add `import "./tests/<id>.js";` to `.ripplo/index.ts`. The CLI only sees what's imported there.
