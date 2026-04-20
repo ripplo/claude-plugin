@@ -5,23 +5,104 @@ description: "Wire @ripplo/testing into the application server. Use when initial
 
 # Ripplo Setup
 
-Mount the engine endpoint into the app server and wire `.ripplo/ripplo.ts` to point at them.
+Mount the engine endpoint into the app server and wire `.ripplo/ripplo.ts` to point at it.
+
+## Mental model: two funnels
+
+- **Definitions funnel into `createRipplo`.** In `.ripplo/ripplo.ts` you pass three registries — `preconditions`, `observers`, `tests` — to `createRipplo(config, { preconditions, observers, tests })`. This is the single point where the DSL graph is registered; there is no global builder.
+- **Implementations funnel into `createEngine`.** In the app server you call `createEngine(ripplo, { preconditions: {...}, observers: {...} })`. The impls object is exhaustiveness-checked by TypeScript — missing keys and unknown keys are compile errors. Adapters (`@ripplo/testing/express`, `/fastify`, `/nextjs`) mount the resulting `engine`.
+
+Never call `createRipplo()` or `createEngine()` outside these two places.
 
 ## Procedure
 
-1. Read `packages/testing/README.md` ("Server Setup") for adapter usage.
+1. Read `packages/testing/README.md` ("Architecture", "Wiring it together", "Server Setup") for the full reference.
 2. **Detect framework** from `package.json`:
    - `express` → `@ripplo/testing/express`
    - `fastify` → `@ripplo/testing/fastify`
    - `next` → `@ripplo/testing/nextjs` (App Router)
    - Anything else (Hono, Koa, Bun, Deno, Workers) → raw engine, see "Custom integration" below.
-3. **Confirm with the user**: which app hosts endpoints, path prefix (default `/ripplo`), webhook secret env var (default `RIPPLO_WEBHOOK_SECRET`), and (for raw-engine) the framework before generating the handler.
+3. **Confirm with the user**: which app hosts the endpoint, path prefix (default `/ripplo`), webhook secret env var (default `RIPPLO_WEBHOOK_SECRET`), and (for raw-engine) the framework before generating the handler.
 4. Install `@ripplo/testing` in the chosen app using the workspace's package manager.
-5. **Wire the adapter.** Always pass `enabled: process.env.ENABLE_RIPPLO_TESTING === "true"` (or equivalent) — never hardcode `true`. When false the adapter mounts a no-op so endpoints can't ship to prod.
-6. **Create/update `.ripplo/ripplo.ts`** with `createRipplo({ appUrl, engineUrl, projectId, webhookSecret })`. **This is the only `createRipplo()` call in the entire app** — calling it twice throws. All other code (adapter wiring, precondition impls) imports the instance from `.ripplo/ripplo.ts`. The `engineUrl` suffix must match the prefix mounted in step 5.
-7. Install the pre-commit hook (below).
-8. `npx ripplo doctor` — resolve all issues.
-9. Once green, invoke `/ripplo:explore` (plan coverage) or `/ripplo:create` (single test).
+5. **Create/update `.ripplo/ripplo.ts`** with the new signature. The `engineUrl` suffix must match the prefix used when mounting the adapter in step 8.
+
+   ```ts
+   // .ripplo/ripplo.ts
+   import { createRipplo } from "@ripplo/testing";
+   import { preconditions } from "./preconditions/index.js";
+   import { observers } from "./observers/index.js";
+   import { tests } from "./tests/index.js";
+
+   export default createRipplo(
+     {
+       appUrl: process.env.APP_URL ?? "https://localhost:3001",
+       engineUrl: `${process.env.APP_URL ?? "https://localhost:3001"}/ripplo`,
+       projectId: "<project-id>",
+       webhookSecret: process.env.RIPPLO_WEBHOOK_SECRET ?? "",
+     },
+     { preconditions, observers, tests },
+   );
+   ```
+
+6. **Scaffold the registry files.**
+
+   ```ts
+   // .ripplo/preconditions/index.ts
+   import { precondition } from "@ripplo/testing";
+
+   export const authLoggedIn = precondition("auth:logged-in")
+     .description("Authenticated test user")
+     .contract<{ userId: string }>();
+
+   export const preconditions = { authLoggedIn /* , ... */ };
+   ```
+
+   ```ts
+   // .ripplo/observers/index.ts
+   import { observer } from "@ripplo/testing";
+   export const observers = {
+     /* ...handles... */
+   };
+   ```
+
+   ```ts
+   // .ripplo/tests/index.ts
+   // Each test file exports a TestDefinition; compose them here.
+   // import { fooTest } from "./foo-test.js";
+   // export const tests = [fooTest];
+   export const tests = [] as const;
+   ```
+
+7. **Create `<app>/src/test/engine.ts`** — the single implementation funnel. The object keys must exactly match the registries in `.ripplo/ripplo.ts`.
+
+   ```ts
+   // <app>/src/test/engine.ts
+   import { createEngine } from "@ripplo/testing";
+   import ripplo from "../../../../.ripplo/index.js"; // adjust path
+   import { prisma } from "../lib/prisma.js";
+
+   export const engine = createEngine(ripplo, {
+     preconditions: {
+       authLoggedIn: {
+         setup: async (ctx) => {
+           // create user, set cookies via ctx.setCookie()
+           return { userId: ctx.uniqueId("user") };
+         },
+         teardown: async (ctx) => {
+           /* clean up using ctx.data.userId */
+         },
+       },
+     },
+     observers: {
+       /* ...impls... */
+     },
+   });
+   ```
+
+8. **Wire the adapter.** Always pass `enabled: process.env.ENABLE_RIPPLO_TESTING === "true"` (or equivalent) — never hardcode `true`. When false the adapter mounts a no-op so endpoints can't ship to prod. Pass the `engine` from step 7 — not the bare `ripplo` instance.
+9. Install the pre-commit hook (below).
+10. `npx ripplo doctor` — resolve all issues.
+11. Once green, invoke `/ripplo:explore` (plan coverage) or `/ripplo:create` (single test).
 
 ## Lockfile
 
@@ -45,14 +126,20 @@ If a `pre-commit` hook already exists, append the `if` block. With husky/lefthoo
 
 ## Adapter cheatsheet
 
+All adapters take the `engine` produced by `createEngine(ripplo, impls)` — not the bare `ripplo` instance.
+
 ### Express
 
 ```ts
 import { createExpressHandler } from "@ripplo/testing/express";
-import ripplo from "<path to .ripplo/ripplo>";
+import { engine } from "./test/engine.js";
+
 app.use(
   "/ripplo",
-  createExpressHandler({ enabled: process.env.ENABLE_RIPPLO_TESTING === "true", ripplo }),
+  createExpressHandler({
+    enabled: process.env.ENABLE_RIPPLO_TESTING === "true",
+    engine,
+  }),
 );
 ```
 
@@ -60,9 +147,13 @@ app.use(
 
 ```ts
 import { registerFastifyHandler } from "@ripplo/testing/fastify";
-import ripplo from "<path to .ripplo/ripplo>";
+import { engine } from "./test/engine.js";
+
 await app.register(
-  registerFastifyHandler({ enabled: process.env.ENABLE_RIPPLO_TESTING === "true", ripplo }),
+  registerFastifyHandler({
+    enabled: process.env.ENABLE_RIPPLO_TESTING === "true",
+    engine,
+  }),
   { prefix: "/ripplo" },
 );
 ```
@@ -72,46 +163,39 @@ await app.register(
 ```ts
 // app/ripplo/[action]/route.ts
 import { createNextHandler } from "@ripplo/testing/nextjs";
-import ripplo from "@/.ripplo/ripplo";
+import { engine } from "@/server/test/engine";
+
 export const PUT = createNextHandler({
   enabled: process.env.ENABLE_RIPPLO_TESTING === "true",
-  ripplo,
+  engine,
 });
 ```
 
 The handler dispatches on the last URL segment (`execute-preconditions`, `execute-observer`, or `teardown-preconditions`). One dynamic route file covers them — don't split into separate route files.
 
-## Preconditions vs. observers
-
-The engine endpoint hosts two primitives:
-
-- **Preconditions** — test data setup/teardown (`.ripplo/preconditions/*.ts`). Declared on the DSL side with `.contract<T>()`, implemented on the server side with `ripplo.implementPrecondition(handle, { setup, teardown })`.
-- **Observers** — backend state assertions mid-test (`.ripplo/observers/*.ts`). Declared with `.observer(name).input<T>().budget("fast" | "slow" | "async").contract()`, implemented with `ripplo.implementObserver(handle, async (ctx, params) => ctx.pass() | ctx.retry(reason) | ctx.fail(reason))`. Used in tests via `assert.backend(observerHandle, params)`.
-
-Both live alongside the same `ripplo` instance; `ripplo.implementPrecondition` and `ripplo.implementObserver` are distinct methods (do not conflate).
-
 ### Custom integration (raw engine)
 
-For unsupported frameworks, use `createEngine` directly. Always go through the exported helpers — never reimplement webhook verification or cookie serialization.
+For unsupported frameworks, mount the `engine` directly over the three routes. Always go through the exported helpers — never reimplement webhook verification or cookie serialization.
 
 ```ts
-import {
-  buildSetCookieHeader,
-  createEngine,
-  serializeCookie,
-  verifyWebhookSignature,
-} from "@ripplo/testing";
-import ripplo from "../.ripplo/ripplo.js";
+import { buildSetCookieHeader, serializeCookie, verifyWebhookSignature } from "@ripplo/testing";
+import { engine } from "./test/engine.js";
 
-const engine = createEngine(ripplo);
-const webhookSecret = ripplo.getConfig().webhookSecret;
+const webhookSecret = engine.getConfig().webhookSecret;
 // PUT /execute-preconditions, PUT /execute-observer, PUT /teardown-preconditions:
 // raw text body → verifyWebhookSignature → JSON.parse →
-// engine.executeBatch({ appUrl }) | engine.teardown(preconditions, data) →
+// engine.executePreconditions({ appUrl }) | engine.executeObserver(name, params) | engine.teardown(preconditions, data) →
 // forward result.cookies as Set-Cookie via buildSetCookieHeader(serializeCookie(c)).
 ```
 
 See `packages/testing/README.md` "Custom integration (raw engine)" for the full handler example.
+
+## Preconditions vs. observers
+
+- **Preconditions** — test data setup/teardown (`.ripplo/preconditions/index.ts`). Declared with `precondition(name).description(...).requires({...}).contract<TData>()`; implemented as a `{ setup, teardown }` pair in the `preconditions` slot of the `createEngine` impls object.
+- **Observers** — backend state assertions mid-test (`.ripplo/observers/index.ts`). Declared with `observer(name).description(...).input<TInput>().budget(tier).contract()`; implemented as an async function in the `observers` slot of the `createEngine` impls object. Used in tests via `assert.backend(observerHandle, params)`.
+
+Both live in the same `engine.ts`; TypeScript enforces that every handle in the registries has a matching impl key.
 
 ## Rules
 
@@ -119,7 +203,8 @@ See `packages/testing/README.md` "Custom integration (raw engine)" for the full 
 - Never hardcode `enabled: true`. Bind it to an env flag.
 - Prefer a first-class adapter; only use raw engine for unsupported frameworks. Always import the helpers — never reimplement them or pull `standardwebhooks` directly.
 - The path prefix in `app.use(...)` / `prefix` / route file path **must match** the `engineUrl` suffix in `.ripplo/ripplo.ts`. Mismatches silently fail.
-- One `createRipplo()` per app, in `.ripplo/ripplo.ts`. Everywhere else imports it.
+- `createRipplo()` is called once — in `.ripplo/ripplo.ts`. `createEngine()` is called once — in the app's `engine.ts`. Everywhere else imports those values.
+- Never duplicate a `precondition()` or `observer()` call across files. Declare once in `.ripplo/` and import the handle. Since `createEngine`'s impls object is exhaustiveness-checked against the `.ripplo/` registries, adding a stray definition in app code can't contribute — it would never be called.
 
 ## Gotchas
 

@@ -27,11 +27,14 @@ All hook logic lives in the `ripplo` CLI (`ripplo hook <name>`) — no shell scr
 By default the plugin treats common web source globs as user-facing (`src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, `components/**`) and ignores generated/vendor output. Override in `.ripplo/ripplo.ts`:
 
 ```ts
-createRipplo({
-  // ...existing config
-  watchPaths: ["app/frontend/**", "lib/controllers/**"],
-  ignorePaths: ["**/*.gen.*", "**/vendor/**"],
-});
+createRipplo(
+  {
+    // ...existing config
+    watchPaths: ["app/frontend/**", "lib/controllers/**"],
+    ignorePaths: ["**/*.gen.*", "**/vendor/**"],
+  },
+  { preconditions, observers, tests },
+);
 ```
 
 ### Testing Scope
@@ -57,7 +60,7 @@ Your agent writes deterministic, parallelizable tests that verify your app works
 
 | Skill                  | Description                                                          |
 | ---------------------- | -------------------------------------------------------------------- |
-| `/ripplo:setup`        | Wire the precondition adapter into your app server                   |
+| `/ripplo:setup`        | Wire the engine adapter into your app server                         |
 | `/ripplo:explore`      | Crawl your codebase and generate test specs                          |
 | `/ripplo:create`       | Create a new test spec                                               |
 | `/ripplo:scope`        | Manage Testing Scope (visible to the user in Developer Mode)         |

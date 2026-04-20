@@ -48,19 +48,28 @@ During inventory, flag each mutation where the UI doesn't fully reflect the back
 - **Async side effects** — email sent, webhook fired, queue job enqueued, worker processed, LLM call resolved.
 - **Cross-entity effects** — mutation touches multiple rows or triggers cascading state (membership changes, plan upgrades).
 
-For each flagged flow, plan to declare a matching observer under `.ripplo/observers/<name>.ts`. Pick the smallest budget tier that fits: `"fast"` (sync DB reads, default), `"slow"` (queue drains ~30s), `"async"` (webhooks/workers/LLM ~120s). `/ripplo:create` owns the observer authoring details.
+For each flagged flow, plan to declare a matching observer in `.ripplo/observers/index.ts` (and add the handle to the `observers` registry). Pick the smallest budget tier that fits: `"fast"` (sync DB reads, default), `"slow"` (queue drains ~30s), `"async"` (webhooks/workers/LLM ~120s). `/ripplo:create` owns the observer authoring details.
 
 ## Phase 3: Stub
 
-For each flow, create a `.notImplemented()` stub in `.ripplo/tests/` and add `import "./tests/<id>.js";` to `.ripplo/index.ts`. The CLI only sees what's imported there.
+For each flow, create a `.notImplemented()` stub in `.ripplo/tests/<id>.ts` and add the exported value to the `tests` array in `.ripplo/tests/index.ts`. The CLI only sees what that registry contains (it's what `createRipplo(..., { ..., tests })` receives in `.ripplo/ripplo.ts`).
 
 ```typescript
-ripplo
-  .test("my-flow")
+// .ripplo/tests/my-flow.ts
+import { test } from "@ripplo/testing";
+import { dataProject } from "../preconditions/index.js";
+
+export const myFlow = test("my-flow")
   .name("My user flow")
   .requires({ project: dataProject })
   .expectedOutcome("Description of expected result")
   .notImplemented();
+```
+
+```typescript
+// .ripplo/tests/index.ts
+import { myFlow } from "./my-flow.js";
+export const tests = [myFlow /* , ... */] as const;
 ```
 
 After each stub, `npx ripplo scope add <test-id>` so it's visible to the user. See `/ripplo:scope`.

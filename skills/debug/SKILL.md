@@ -7,7 +7,7 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
 
 ## Procedure
 
-1. Find the test in `.ripplo/tests/` — id is `.test("<id>")`, not the filename.
+1. Find the test in `.ripplo/tests/` — id is the string passed to `test("<id>")`, not the filename.
 2. `npx ripplo run <id>` if not run recently. **Never pipe through `grep`/`tail`/`head`** to find the failed step — Read the artifacts.
 3. Read `.ripplo/debug/<runId>/` in this order:
    1. `summary.txt` — locate the failed step index
