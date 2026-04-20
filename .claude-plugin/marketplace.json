@@ -1,11 +1,20 @@
 {
   "name": "ripplo",
   "owner": { "name": "Ripplo" },
+  "metadata": {
+    "description": "A tight validation loop for app-building agents. Hooks enforce tests exist for user-facing edits; skills author and run deterministic, backend-aware E2E tests; replay UI shows exactly what happened."
+  },
   "plugins": [
     {
       "name": "ripplo",
       "source": "./",
-      "description": "E2E testing — lint, run, and enforce test coverage"
+      "description": "A tight validation loop for app-building agents. Hooks enforce tests exist for user-facing edits; skills author and run deterministic, backend-aware E2E tests; replay UI shows exactly what happened.",
+      "category": "testing",
+      "keywords": ["e2e", "testing", "tests", "playwright", "qa"],
+      "homepage": "https://ripplo.ai",
+      "repository": "https://github.com/ripplo/claude-plugin",
+      "license": "MIT",
+      "author": { "name": "Ripplo", "url": "https://ripplo.ai" }
     }
   ]
 }
