@@ -145,6 +145,15 @@ The `observer-params-reference-variables` rule flags observers whose params are 
 - `role()` locators only; `testId()` only when no ARIA role exists.
 - Exact text matching — no `contains`, `startsWith`, regex.
 - Destructure precondition data in `steps()` — never hardcode.
+- **Never write `"{{ns.key}}"` as a string literal.** Pass the destructured proxy value directly (e.g. `assert.value(locator, table.name)`, not `assert.value(locator, "{{table.name}}")`). The `no-literal-template-strings` lint rule will flag this — it bypasses type-checking so typos like `"{{tabel.name}}"` silently compile.
+- **Runtime variables use `variable()` tokens, not template strings.** For `clipboard`/`extract` outputs, call `variable("name")` and pass the token to both the writer (`target:`) and readers (`assert.value`, `fill`, etc.):
+  ```ts
+  import { variable } from "@ripplo/testing/control";
+  const copied = variable("copied");
+  clipboard({ action: "read", target: copied, value: undefined }).as("read");
+  assert.value(role("button", "Copy"), copied).as("matches clipboard");
+  ```
+  Never write `"{{vars.copied}}"` as a literal.
 - Every step has `.as("description")`.
 
 If a run fails, `/ripplo:debug`. Never weaken assertions to make a test pass — if it's an app bug, report with evidence.
