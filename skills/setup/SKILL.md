@@ -35,14 +35,15 @@ Never call `createRipplo()` or `createEngine()` outside these two places.
 
    export default createRipplo(
      {
-       appUrl: process.env.APP_URL ?? "https://localhost:3001",
-       engineUrl: `${process.env.APP_URL ?? "https://localhost:3001"}/ripplo`,
+       appUrl: "https://localhost:3001",
+       engineUrl: "https://localhost:3001/ripplo",
        projectId: "<project-id>",
-       webhookSecret: process.env.RIPPLO_WEBHOOK_SECRET ?? "",
      },
      { preconditions, observers, tests },
    );
    ```
+
+   `webhookSecret` defaults to `process.env.RIPPLO_WEBHOOK_SECRET` and `createRipplo` throws if it's missing. The CLI auto-loads `.ripplo/.env` before each compile, so live edits to `.ripplo/ripplo.ts` and `.ripplo/.env` are picked up in dev mode without restarting.
 
 6. **Scaffold the registry files.**
 
