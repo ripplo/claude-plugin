@@ -72,7 +72,9 @@ import { myFlow } from "./my-flow.js";
 export const tests = [myFlow /* , ... */] as const;
 ```
 
-After each stub, `npx ripplo scope add <test-id>` so it's visible to the user. See `/ripplo:scope`.
+After stubbing, scope-add in bulk: `npx ripplo scope add <id1> <id2> <id3>` (variadic — one call, not a shell loop). See `/ripplo:scope`.
+
+Remember: each scope item is a commitment that the app delivers the behavior AND a passing test proves it. Don't scope flows you aren't going to make work end-to-end this session.
 
 **Plan-mode requirement**: before `ExitPlanMode`, every flow this plan touches must have a stub, and the plan file must include a "Tests to implement" section listing the stub ids — the gate hook blocks otherwise.
 

@@ -5,11 +5,21 @@ description: "Create a new Ripplo test spec. Use when adding a new e2e test for 
 
 # Create Ripplo Test
 
+## Prerequisites — load these skills first
+
+Before running the procedure below, make sure you have these skills in context — they own concerns this skill assumes:
+
+- **`/ripplo:setup`** — dev session, hooks, project wiring, `pnpm dev`. Re-read if `npx ripplo status` errors, the dev server isn't running, or you're unsure whether the session is active.
+- **`/ripplo:scope`** — what scope is, the bulk `add`/`remove` commands, and the rule that `remove` is **not** a gate-clearing shortcut. Step 3 below depends on this.
+- **`/ripplo:debug`** — invoke when a run fails (step 9).
+
+**A scope item is "done" only when the app code delivers the user-facing behavior AND a passing test proves it.** Authoring a test against a broken UI/API is not done — the test exists to prove the feature works, not to be the feature. If the flow doesn't work yet, build/fix the app code first (or in lockstep), then make the test pass. Never weaken the test to paper over an app bug.
+
 ## Procedure
 
 1. Read `packages/testing/README.md` for DSL reference and determinism rules.
 2. **Stub first.** Add the test with `.notImplemented()` so it surfaces in `npx ripplo status` and the stub→implementation transition is trackable.
-3. **Scope it.** `npx ripplo scope status` — if a free-text user item describes this flow, `npx ripplo scope link <scope-item-id> <test-id>`. Otherwise `npx ripplo scope add <test-id>`. See `/ripplo:scope`.
+3. **Scope it.** `npx ripplo scope status` — if a free-text user item describes this flow, `npx ripplo scope link <scope-item-id> <test-id>`. Otherwise `npx ripplo scope add <test-id>`. Bulk-add when stubbing several at once: `npx ripplo scope add <id1> <id2> <id3>`. See `/ripplo:scope`.
 4. **Register the file.** Each test file under `.ripplo/tests/<id>.ts` exports a `TestDefinition` value. Add it to the `tests` array in `.ripplo/tests/index.ts`:
 
    ```ts

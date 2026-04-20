@@ -5,10 +5,20 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
 
 # Debug Ripplo Test
 
+## Read artifacts first, re-run last
+
+A run takes ~30-60s. Artifacts in `.ripplo/debug/<runId>/` already contain everything the run produced — DOM, a11y tree, console, network, screenshots. **Re-running tells you nothing new unless you've changed something.** The default loop is: read artifacts → form a specific hypothesis (cite a line) → make ONE targeted change → re-run once to verify.
+
+Anti-patterns:
+
+- Re-running because "maybe it'll pass this time" — flakes are the exception, not the diagnosis. If you suspect a flake, use `/ripplo:flake-detect` (it parallelizes), don't manually re-run.
+- Re-running before reading any artifact.
+- Reading only `summary.txt` and re-running. Always open the failed step's `dom.html` + `accessibility-tree.txt` before the next action.
+
 ## Procedure
 
 1. Find the test in `.ripplo/tests/` — id is the string passed to `test("<id>")`, not the filename.
-2. `npx ripplo run <id>` if not run recently. **Never pipe through `grep`/`tail`/`head`** to find the failed step — Read the artifacts.
+2. **Use the existing run's artifacts.** Only `npx ripplo run <id>` if there's no recent run, OR you've made a fix and need to verify. **Never pipe through `grep`/`tail`/`head`** to find the failed step — Read the artifacts.
 3. Read `.ripplo/debug/<runId>/` in this order:
    1. `summary.txt` — locate the failed step index
    2. `error.txt` — top-level errors (server unreachable, config)
