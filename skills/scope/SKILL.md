@@ -5,6 +5,29 @@ description: "Manage Testing Scope — your working memory for what end-to-end f
 
 # Testing Scope
 
+## Your responsibility
+
+Maintaining an accurate, sufficiently broad scope is **your** job — not the user's. The user describes what they're building; you translate that into the set of e2e flows that must pass to prove the feature actually works.
+
+For any non-trivial change:
+
+- Enumerate every user flow the change could affect — new flows AND existing flows whose behavior might shift.
+- Scope them all: stub missing tests, `scope add` existing ones.
+- Err on the side of breadth. A missed flow is a silent regression the Stop gate won't catch.
+
+**Upper bound: ~50 tests in scope at once.** Below that, include as many as needed to cover the functionality — don't trim for convenience. If a change genuinely exceeds 30, split the work into phases with the user. Hitting the bound is a signal the change is too large for one session, not a reason to narrow coverage.
+
+Under-scoping is the default failure mode. When in doubt, scope it in.
+
+**Rule: any test you add, stub, or change must be in scope immediately.** Do not wait until the end of the session or batch a scope-add "later" — the instant you create or modify `.ripplo/tests/<id>.ts`, run `npx ripplo scope add <id>` (bulk: `scope add <id1> <id2>...`). Tests not in scope are invisible to the Stop gate, so an out-of-scope stub is the same as no stub at all.
+
+## Related skills (load these too)
+
+- `/ripplo:explore` — discover flows and stub tests
+- `/ripplo:create` — per-test authoring workflow
+
+## What scope is
+
 Scope is your working memory for what end-to-end flows this session is responsible for — anything the running app exercises (frontend, backend, schema, infra, config, deps) that your changes could affect. It lives in the dev-session DB; the user sees it live in Developer Mode → Testing Scope. Scope dies with the PR; the durable artifacts are tests in `.ripplo/tests/`.
 
 **"Done" for a scope item means two things together: the app code delivers the user-facing behavior, AND a passing test proves it.** Authoring a test against broken UI/API isn't done. Shipping the feature without a test isn't done either. Scope is the contract that keeps both halves honest.

@@ -12,6 +12,7 @@ Before running the procedure below, make sure you have these skills in context �
 - **`/ripplo:setup`** — dev session, hooks, project wiring, `pnpm dev`. Re-read if `npx ripplo status` errors, the dev server isn't running, or you're unsure whether the session is active.
 - **`/ripplo:scope`** — what scope is, the bulk `add`/`remove` commands, and the rule that `remove` is **not** a gate-clearing shortcut. Step 3 below depends on this.
 - **`/ripplo:debug`** — invoke when a run fails (step 9).
+- **`/ripplo:explore`** — if you're creating more than one test, start from explore to enumerate flows first.
 
 **A scope item is "done" only when the app code delivers the user-facing behavior AND a passing test proves it.** Authoring a test against a broken UI/API is not done — the test exists to prove the feature works, not to be the feature. If the flow doesn't work yet, build/fix the app code first (or in lockstep), then make the test pass. Never weaken the test to paper over an app bug.
 

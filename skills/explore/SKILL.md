@@ -7,6 +7,13 @@ description: "Guided codebase crawl to plan and stub Ripplo tests. Use when sett
 
 Build comprehensive e2e test coverage for this app.
 
+## Related skills (load these too)
+
+- `/ripplo:scope` — scope management commands (scope add/status/remove)
+- `/ripplo:create` — per-test authoring workflow
+
+Both are prerequisites: after stubbing here, use scope to commit and create to implement.
+
 ## Setup
 
 1. Read `packages/testing/README.md` for the DSL, precondition system, determinism rules.

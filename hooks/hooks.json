@@ -42,6 +42,15 @@
             "command": "npx ripplo hook exit-plan-gate"
           }
         ]
+      },
+      {
+        "matcher": "Edit|Write|NotebookEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx ripplo hook pre-edit-scope-gate"
+          }
+        ]
       }
     ],
     "Stop": [
