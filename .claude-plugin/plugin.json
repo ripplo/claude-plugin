@@ -1,7 +1,7 @@
 {
   "name": "ripplo",
   "description": "A tight validation loop for app-building agents. Hooks enforce tests exist for user-facing edits; skills author and run deterministic, backend-aware E2E tests; replay UI shows exactly what happened.",
-  "version": "0.3.4",
+  "version": "0.3.5",
   "author": { "name": "Ripplo", "url": "https://ripplo.ai" },
   "repository": "https://github.com/ripplo/claude-plugin",
   "homepage": "https://ripplo.ai",

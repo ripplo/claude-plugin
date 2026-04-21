@@ -10,7 +10,7 @@ Mount the engine endpoint into the app server and wire `.ripplo/ripplo.ts` to po
 ## Mental model: two funnels
 
 - **Definitions funnel into `createRipplo`.** In `.ripplo/ripplo.ts` you pass three registries — `preconditions`, `observers`, `tests` — to `createRipplo(config, { preconditions, observers, tests })`. This is the single point where the DSL graph is registered; there is no global builder.
-- **Implementations funnel into `createEngine`.** In the app server you call `createEngine(ripplo, { preconditions: {...}, observers: {...} })`. The impls object is exhaustiveness-checked by TypeScript — missing keys and unknown keys are compile errors. Adapters (`@ripplo/testing/express`, `/fastify`, `/nextjs`) mount the resulting `engine`.
+- **Implementations funnel into `createEngine`.** In the app server you call `createEngine(ripplo, { preconditions: {...}, observers: {...} })`. The impls object is exhaustiveness-checked by TypeScript — missing keys and unknown keys are compile errors. Adapters (`@ripplo/testing/express`, `/fastify`, `/nextjs`, `/hono`, `/koa`, `/nestjs`, `/elysia`) mount the resulting `engine`.
 
 Never call `createRipplo()` or `createEngine()` outside these two places.
 
@@ -21,7 +21,11 @@ Never call `createRipplo()` or `createEngine()` outside these two places.
    - `express` → `@ripplo/testing/express`
    - `fastify` → `@ripplo/testing/fastify`
    - `next` → `@ripplo/testing/nextjs` (App Router)
-   - Anything else (Hono, Koa, Bun, Deno, Workers) → raw engine, see "Custom integration" below.
+   - `hono` → `@ripplo/testing/hono`
+   - `koa` → `@ripplo/testing/koa`
+   - `@nestjs/core` → `@ripplo/testing/nestjs`
+   - `elysia` → `@ripplo/testing/elysia`
+   - Anything else → raw engine, see "Custom integration" below.
 3. **Confirm with the user**: which app hosts the endpoint, path prefix (default `/ripplo`), webhook secret env var (default `RIPPLO_WEBHOOK_SECRET`), and (for raw-engine) the framework before generating the handler.
 4. Install `@ripplo/testing` in the chosen app using the workspace's package manager.
 5. **Create/update `.ripplo/ripplo.ts`** with the new signature. The `engineUrl` suffix must match the prefix used when mounting the adapter in step 8.
@@ -173,6 +177,82 @@ export const PUT = createNextHandler({
 ```
 
 The handler dispatches on the last URL segment (`execute-preconditions`, `execute-observer`, or `teardown-preconditions`). One dynamic route file covers them — don't split into separate route files.
+
+### Hono
+
+```ts
+import { Hono } from "hono";
+import { createHonoHandler } from "@ripplo/testing/hono";
+import { engine } from "./test/engine.js";
+
+const app = new Hono();
+app.route(
+  "/ripplo",
+  createHonoHandler({
+    enabled: process.env.ENABLE_RIPPLO_TESTING === "true",
+    engine,
+  }),
+);
+```
+
+`createHonoHandler` returns a `Hono` sub-app; mount it via `app.route(prefix, ...)`. Runs on Node, Bun, Deno, and Workers.
+
+### Koa
+
+```ts
+import mount from "koa-mount";
+import { createKoaHandler } from "@ripplo/testing/koa";
+import { engine } from "./test/engine.js";
+
+app.use(
+  mount(
+    "/ripplo",
+    createKoaHandler({
+      enabled: process.env.ENABLE_RIPPLO_TESTING === "true",
+      engine,
+    }),
+  ),
+);
+```
+
+The Koa handler reads the raw body itself — do not place a body-parser before it.
+
+### NestJS
+
+```ts
+import { RipploTestingModule } from "@ripplo/testing/nestjs";
+import { engine } from "./test/engine.js";
+
+@Module({
+  imports: [
+    RipploTestingModule.forRoot({
+      enabled: process.env.ENABLE_RIPPLO_TESTING === "true",
+      engine,
+      path: "ripplo",
+    }),
+  ],
+})
+export class AppModule {}
+```
+
+Requires `@nestjs/platform-express` and `reflect-metadata`. `path` is the controller prefix (default `"ripplo"`).
+
+### Elysia
+
+```ts
+import { Elysia } from "elysia";
+import { createElysiaHandler } from "@ripplo/testing/elysia";
+import { engine } from "./test/engine.js";
+
+const app = new Elysia().group("/ripplo", (app) =>
+  app.use(
+    createElysiaHandler({
+      enabled: process.env.ENABLE_RIPPLO_TESTING === "true",
+      engine,
+    }),
+  ),
+);
+```
 
 ### Custom integration (raw engine)
 
