@@ -274,7 +274,7 @@ See `packages/testing/README.md` "Custom integration (raw engine)" for the full 
 ## Preconditions vs. observers
 
 - **Preconditions** — test data setup/teardown (`.ripplo/preconditions/index.ts`). Declared with `precondition(name).description(...).requires({...}).contract<TData>()`; implemented as a `{ setup, teardown }` pair in the `preconditions` slot of the `createEngine` impls object.
-- **Observers** — backend state assertions mid-test (`.ripplo/observers/index.ts`). Declared with `observer(name).description(...).input<TInput>().budget(tier).contract()`; implemented as an async function in the `observers` slot of the `createEngine` impls object. Used in tests via `assert.backend(observerHandle, params)`.
+- **Observers** — backend state assertions mid-test (`.ripplo/observers/index.ts`). Declared with `observer(name).description(...).input<TInput>().budget(tier).contract()`; implemented as an async function in the `observers` slot of the `createEngine` impls object. Used in tests via `assert.backend(observerHandle, params)`. **Required on every test that exercises a mutation flow** — see `/ripplo:create` → "What makes a good test".
 
 Both live in the same `engine.ts`; TypeScript enforces that every handle in the registries has a matching impl key.
 

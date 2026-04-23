@@ -31,6 +31,8 @@ Inventory every testable surface. Use sub-agents for deep file reads — keep ra
 
 **Inventory every interaction that mutates state.** Miss nothing — dialogs/modals/sheets, forms (including filters and search), inline editing, action menus, toggles that mutate, drag-and-drop, bulk actions, confirmations, wizards, tab panels with distinct data, file upload/import/export, settings saves, toast actions, keyboard shortcuts, real-time-driven UI changes.
 
+**Start from `.ripplo/coverage.d.ts`.** This generated file enumerates every AST-visible user-facing interaction (buttons, inputs, links, etc.) as typed branch IDs. Every ID not referenced by some test's `.coverage(...)` is an uncovered interaction. `npx ripplo cover` prints the current unacknowledged set. Use this as the ground-truth inventory for what needs tests; augment with manual inspection for things AST can't see (keyboard shortcuts in effects, canvas interactions, imperative dialog triggers).
+
 **Inventory distinct render states for each route**: empty/first-time, conditional based on data or feature flags or plans, error states, loading-gated interactions, pagination boundaries, before/after submission.
 
 ## Phase 2: Filter to real flows
@@ -45,17 +47,22 @@ Skip:
 - Read-only page views with no interaction.
 - Third-party OAuth redirects (can't automate).
 
-Coverage check: every interactive component covered or explicitly excluded; CRUD per core entity; role-specific actions if multi-role; empty/conditional states represented.
+Coverage check: `npx ripplo cover` shows every unacknowledged branch ID; aim to have a stubbed test claiming each relevant one via `.coverage(...)` once implemented. CRUD per core entity; role-specific actions if multi-role; empty/conditional states represented.
 
-### Flag flows that need a backend observer
+### Identify the backend observer for every mutation flow
 
-During inventory, flag each mutation where the UI doesn't fully reflect the backend effect. These need `assert.backend(observerHandle, params)` in addition to UI assertions:
+This is not a trailing step — it happens during the filter pass, alongside preconditions. Every flow that touches backend state gets an observer identified (by name, even if the handle doesn't exist yet). Mutation flows without an observer plan are not ready to stub.
 
-- **Load-bearing writes** where the row/record in the DB is the real thing being tested (e.g. org rename persisted, project archived, invite created).
+Categories that always need an observer:
+
+- **Load-bearing writes** — the row/record in the DB is the real thing being tested (org rename persisted, project archived, invite created, settings saved).
 - **Async side effects** — email sent, webhook fired, queue job enqueued, worker processed, LLM call resolved.
-- **Cross-entity effects** — mutation touches multiple rows or triggers cascading state (membership changes, plan upgrades).
+- **Cross-entity effects** — mutation touches multiple rows or triggers cascading state (membership changes, plan upgrades, cancellations).
+- **Optimistic UI** — the server call still happens even if the UI updates immediately; observer verifies it didn't silently fail.
 
-For each flagged flow, plan to declare a matching observer in `.ripplo/observers/index.ts` (and add the handle to the `observers` registry). Pick the smallest budget tier that fits: `"fast"` (sync DB reads, default), `"slow"` (queue drains ~30s), `"async"` (webhooks/workers/LLM ~120s). `/ripplo:create` owns the observer authoring details.
+For each flow in the inventory, annotate it with (a) preconditions needed, (b) **observer(s) needed** — name the backend effect even if you haven't declared the handle yet (`workflowNameIs`, `subscriptionCanceled`, etc.). This annotation carries into the stub (see Phase 3) and into `/ripplo:create`. Pick the smallest budget tier: `"fast"` (sync DB reads, default), `"slow"` (queue drains ~30s), `"async"` (webhooks/workers/LLM ~120s). Observer authoring mechanics live in `/ripplo:create`.
+
+**Do not stub a mutation flow with the intent of using `uiOnly: true` later.** That's a false-green pattern (`/ripplo:create` → "`uiOnly: true` is not a stub"). If you can't name the backend effect the test should verify, go back to the component source and trace the mutation before stubbing.
 
 ## Phase 3: Stub
 
@@ -69,6 +76,8 @@ import { dataProject } from "../preconditions/index.js";
 export const myFlow = test("my-flow")
   .name("My user flow")
   .requires({ project: dataProject })
+  // TODO(observer): name the backend effect to verify (e.g. workflowNameIs, runStatusIs).
+  // Remove this line only after the observer is wired and used via assert.backend(...).
   .expectedOutcome("Description of expected result")
   .notImplemented();
 ```
@@ -114,3 +123,7 @@ Symptoms when flake surfaces: unique-constraint errors, 401/403 mid-test, vanish
 - Exact text matching — no `contains`, `startsWith`, regex.
 - Destructure precondition data in `steps()` — never hardcode.
 - Every step has `.as("description")`.
+
+## After exploring: implementing many stubs
+
+Exploration typically produces a batch of stubbed tests. **Implement them in parallel via subagents** — see `/ripplo:create` → "Parallelizing multi-stub sessions". Don't serialize, and don't let the stub count pressure you into narrowing scope; `/ripplo:scope` forbids trimming for size reasons.
