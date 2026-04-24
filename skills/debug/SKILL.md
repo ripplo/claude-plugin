@@ -46,9 +46,9 @@ Anti-patterns:
 
 These surface at `stop-enforce`, not at test runtime. Fix the `.coverage(...)` array, don't re-run the test.
 
-- **"New user-facing interactions were introduced without test coverage"** — the diff added a button/input/etc. that no test's `.coverage(...)` claims. Read the listed branch IDs, locate the owning component, decide which test should exercise each interaction, and add the ID to that test's `.coverage(...)` array. If no existing test is a natural fit, stub a new one (see `/ripplo:create`).
-- **"`.coverage(...)` claims reference branches that don't exist"** — a claimed ID no longer resolves to any branch in the tree (component was renamed/deleted/refactored). Remove the stale ID from the test's `.coverage(...)`. If the test was covering something real that moved, update the ID to the new one (check `.ripplo/coverage.d.ts`).
-- **Full-tree audit:** `npx ripplo cover` lists every unacknowledged branch and every stale claim across the codebase, independent of diff.
+- **"New user-facing interactions were introduced without test coverage"** — the diff added a button/input/etc. that no test's `.coverage(...)` claims. Read the listed coverage statement IDs, locate the owning component, decide which test should exercise each interaction, and add the ID to that test's `.coverage(...)` array. If no existing test is a natural fit, stub a new one (see `/ripplo:create`).
+- **"`.coverage(...)` claims reference coverage statements that don't exist"** — a claimed ID no longer resolves to any coverage statement in the tree (component was renamed/deleted/refactored). Remove the stale ID from the test's `.coverage(...)`. If the test was covering something real that moved, update the ID to the new one (check `.ripplo/coverage.d.ts`).
+- **Full-tree audit:** `npx ripplo cover` lists every unacknowledged coverage statement and every stale claim across the codebase, independent of diff.
 
 ## Discipline
 

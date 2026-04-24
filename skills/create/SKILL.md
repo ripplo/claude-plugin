@@ -150,19 +150,18 @@ Never declare `precondition(...)` or `observer(...)` in app code. Handles live i
 
 **Every implemented test must end with `.coverage(...ids)` listing every user-facing interaction the test exercises.** The `stop-enforce` gate errors on any net-new interaction in the diff that no test claims. Without `.coverage()`, net-new buttons and inputs ship uncovered and block the gate.
 
-- **IDs come from `.ripplo/coverage.d.ts`** — a generated, committed file listing every AST-visible user interaction. Shape: `<file>#<Component>.<kind>[<label>]` where `kind ∈ { click, drag, input, navigate, select, submit, upload }`. Import the type for autocomplete/typo-checking:
+- **IDs come from `.ripplo/coverage.d.ts`** — a generated, committed file listing every AST-visible user interaction. Shape: `<file>#<Component>.<kind>[<label>]` where `kind ∈ { click, drag, input, navigate, select, submit, upload }`. The generated file ambiently augments `@ripplo/testing`'s `CoverageRegistry` interface, so `.coverage(...)` autocompletes and type-errors on stale/typo'd IDs with no import needed:
 
   ```ts
-  import type { BranchId } from "../coverage";
-  const ids: ReadonlyArray<BranchId> = [
+  .coverage(
     "apps/web/src/components/settings/OrgNameForm.tsx#OrgNameForm.click[Save]",
-  ];
+  );
   ```
 
 - **Stubs via `.notImplemented()` skip `.coverage()`.** Acknowledgement happens at implementation time.
 - **Claim only what the test actually exercises.** `.coverage("...click[Save]")` is a claim the test clicks that Save button. Stale claims (IDs that no longer exist in the tree) are flagged by `stop-enforce` and `npx ripplo cover`.
 - **When `stop-enforce` says "new interactions were introduced without test coverage":** read the IDs it lists, find the test that most naturally covers each, and add them to that test's `.coverage(...)` array. If no existing test covers the interaction, stub a new one (same flow as above).
-- **Audit at any time:** `npx ripplo cover` prints all unacknowledged branches and stale claims across the whole tree.
+- **Audit at any time:** `npx ripplo cover` prints all unacknowledged coverage statements and stale claims across the whole tree.
 
 ## What makes a good test
 
