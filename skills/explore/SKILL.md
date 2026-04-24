@@ -5,14 +5,7 @@ description: "Guided codebase crawl to plan and stub Ripplo tests. Use when sett
 
 # Ripplo Explore
 
-Build comprehensive e2e test coverage for this app.
-
-## Related skills (load these too)
-
-- `/ripplo:scope` — scope management commands (scope add/status/remove)
-- `/ripplo:create` — per-test authoring workflow
-
-Both are prerequisites: after stubbing here, use scope to commit and create to implement.
+Map the app's user-facing surface area and define the success criteria (tests) that prove each interaction works end-to-end. Coverage is not a metric for its own sake — it's the contract that every flow the app exposes has a test backing it, closing the loop between what the app claims to do and what's actually verified.
 
 ## Setup
 
@@ -31,42 +24,23 @@ Inventory every testable surface. Use sub-agents for deep file reads — keep ra
 
 **Inventory every interaction that mutates state.** Miss nothing — dialogs/modals/sheets, forms (including filters and search), inline editing, action menus, toggles that mutate, drag-and-drop, bulk actions, confirmations, wizards, tab panels with distinct data, file upload/import/export, settings saves, toast actions, keyboard shortcuts, real-time-driven UI changes.
 
-**Start from `.ripplo/coverage.d.ts`.** This generated file enumerates every AST-visible user-facing interaction (buttons, inputs, links, etc.) as typed branch IDs. Every ID not referenced by some test's `.coverage(...)` is an uncovered interaction. `npx ripplo cover` prints the current unacknowledged set. Use this as the ground-truth inventory for what needs tests; augment with manual inspection for things AST can't see (keyboard shortcuts in effects, canvas interactions, imperative dialog triggers).
+**Start from `.ripplo/coverage.d.ts`.** This generated file enumerates every AST-visible user-facing interaction as typed branch IDs. Every ID not referenced by some test's `.coverage(...)` is uncovered. `npx ripplo cover` prints the current unacknowledged set. Augment with manual inspection for things AST can't see (keyboard shortcuts in effects, canvas interactions, imperative dialog triggers).
 
-**Inventory distinct render states for each route**: empty/first-time, conditional based on data or feature flags or plans, error states, loading-gated interactions, pagination boundaries, before/after submission.
+**Inventory distinct render states per route**: empty/first-time, conditional (data/feature-flag/plan), error, loading-gated, pagination boundaries, before/after submission.
 
 ## Phase 2: Filter to real flows
 
-Worth a test (state mutation or multi-step UI):
+Worth a test (state mutation or multi-step UI): CRUD per entity, form submissions, dialog flows, multi-step flows, state changes, inline actions, bulk ops, import/export.
 
-- CRUD per entity, form submissions, dialog flows, multi-step flows, state changes, inline actions, bulk ops, import/export.
+Skip: navigation-only clicks (tests the router), read-only page views with no interaction, third-party OAuth redirects.
 
-Skip:
+Coverage target: CRUD per core entity; role-specific actions if multi-role; empty/conditional states represented. `npx ripplo cover` is ground truth.
 
-- Navigation-only clicks (tests the router, not the app).
-- Read-only page views with no interaction.
-- Third-party OAuth redirects (can't automate).
-
-Coverage check: `npx ripplo cover` shows every unacknowledged branch ID; aim to have a stubbed test claiming each relevant one via `.coverage(...)` once implemented. CRUD per core entity; role-specific actions if multi-role; empty/conditional states represented.
-
-### Identify the backend observer for every mutation flow
-
-This is not a trailing step — it happens during the filter pass, alongside preconditions. Every flow that touches backend state gets an observer identified (by name, even if the handle doesn't exist yet). Mutation flows without an observer plan are not ready to stub.
-
-Categories that always need an observer:
-
-- **Load-bearing writes** — the row/record in the DB is the real thing being tested (org rename persisted, project archived, invite created, settings saved).
-- **Async side effects** — email sent, webhook fired, queue job enqueued, worker processed, LLM call resolved.
-- **Cross-entity effects** — mutation touches multiple rows or triggers cascading state (membership changes, plan upgrades, cancellations).
-- **Optimistic UI** — the server call still happens even if the UI updates immediately; observer verifies it didn't silently fail.
-
-For each flow in the inventory, annotate it with (a) preconditions needed, (b) **observer(s) needed** — name the backend effect even if you haven't declared the handle yet (`workflowNameIs`, `subscriptionCanceled`, etc.). This annotation carries into the stub (see Phase 3) and into `/ripplo:create`. Pick the smallest budget tier: `"fast"` (sync DB reads, default), `"slow"` (queue drains ~30s), `"async"` (webhooks/workers/LLM ~120s). Observer authoring mechanics live in `/ripplo:create`.
-
-**Do not stub a mutation flow with the intent of using `uiOnly: true` later.** That's a false-green pattern (`/ripplo:create` → "`uiOnly: true` is not a stub"). If you can't name the backend effect the test should verify, go back to the component source and trace the mutation before stubbing.
+**For each mutation flow, name the observer before stubbing** — even if the handle doesn't exist yet (`workflowNameIs`, `subscriptionCanceled`). If you can't name the backend effect the test should verify, go back to the component source and trace the mutation. Observer mechanics and the `uiOnly` rules live in `/ripplo:create`.
 
 ## Phase 3: Stub
 
-For each flow, create a `.notImplemented()` stub in `.ripplo/tests/<id>.ts` and add the exported value to the `tests` array in `.ripplo/tests/index.ts`. The CLI only sees what that registry contains (it's what `createRipplo(..., { ..., tests })` receives in `.ripplo/ripplo.ts`).
+For each flow, create a `.notImplemented()` stub in `.ripplo/tests/<id>.ts` and add the exported value to the `tests` array in `.ripplo/tests/index.ts`. The CLI only sees what that registry contains.
 
 ```typescript
 // .ripplo/tests/my-flow.ts
@@ -77,7 +51,6 @@ export const myFlow = test("my-flow")
   .name("My user flow")
   .requires({ project: dataProject })
   // TODO(observer): name the backend effect to verify (e.g. workflowNameIs, runStatusIs).
-  // Remove this line only after the observer is wired and used via assert.backend(...).
   .expectedOutcome("Description of expected result")
   .notImplemented();
 ```
@@ -88,42 +61,25 @@ import { myFlow } from "./my-flow.js";
 export const tests = [myFlow /* , ... */] as const;
 ```
 
-After stubbing, scope-add in bulk: `npx ripplo scope add <id1> <id2> <id3>` (variadic — one call, not a shell loop). See `/ripplo:scope`.
+After stubbing, bulk scope-add: `npx ripplo scope add <id1> <id2> <id3>` (variadic — one call, not a shell loop). See `/ripplo:scope`.
 
-Remember: each scope item is a commitment that the app delivers the behavior AND a passing test proves it. Don't scope flows you aren't going to make work end-to-end this session.
+Each scope item is a commitment that the app delivers the behavior AND a passing test proves it. Don't scope flows you aren't going to make work end-to-end this session.
 
-**Plan-mode requirement**: before `ExitPlanMode`, every flow this plan touches must have a stub, and the plan file must include a "Tests to implement" section listing the stub ids — the gate hook blocks otherwise.
+**Plan-mode requirement**: before `ExitPlanMode`, every flow the plan touches must have a stub, and the plan file must include a "Tests to implement" section listing the stub ids — the gate hook blocks otherwise.
 
 Present the stub list to the user for confirmation before implementing.
 
 ## Phase 4: Implement
 
-For each confirmed flow, invoke `/ripplo:create` — it owns the per-test workflow (read source → write steps → lint → run).
-
-**Pre-flight before handing off**: read the actual component source. Find every form field, validation rule, error/success state, loading state. Trace the component tree. Find the mutation/API call and its responses. Find conditional renders. Find edge cases (disabled states, character limits, duplicate detection).
+For each confirmed flow, invoke `/ripplo:create` — it owns the per-test workflow and the multi-stub parallelization pattern. Pre-flight before handing off: read the actual component source, find every form field, validation rule, error/success state, loading state, mutation/API call, conditional render, and edge case (disabled states, character limits, duplicate detection).
 
 ## Parallel safety for preconditions
 
 Tests run in parallel. Every `setup()` must produce isolated, non-conflicting data:
 
-- **Unique identifiers** via setup `ctx`:
-  - `ctx.uniqueId(prefix)` — per-run unique string for names, slugs, IDs.
-  - `ctx.uniqueEmail()` — per-run email for test users.
-  - `ctx.runId` — raw run id.
-  - `ctx.fixed(value)` — only for genuinely shared constants (e.g. test password). Never for names/emails/ids.
-- **Return dynamic IDs.** `setup()` return value flows into `requires()` destructuring — return created entity IDs so tests reference them by id, not hardcoded slug.
-- **Scoped teardown.** Delete only entities created by _this_ setup invocation, by id. Never `deleteMany` by prefix or `TRUNCATE` — that wipes parallel runs' data.
+- **Unique identifiers** via setup `ctx`: `ctx.uniqueId(prefix)`, `ctx.uniqueEmail()`, `ctx.runId`. `ctx.fixed(value)` is only for genuinely shared constants (e.g. test password) — never for names/emails/ids.
+- **Return dynamic IDs.** `setup()` return flows into `requires()` destructuring — return created entity IDs so tests reference them by id, not hardcoded slug.
+- **Scoped teardown.** Delete only entities created by _this_ setup invocation, by id. Never `deleteMany` by prefix or `TRUNCATE`.
 - **Independent sessions.** Each setup creates its own auth session. No singleton test user.
 
-Symptoms when flake surfaces: unique-constraint errors, 401/403 mid-test, vanishing session cookies. Fix the precondition, not the test.
-
-## Determinism (non-negotiable)
-
-- `role()` only; `testId()` only when no ARIA role exists.
-- Exact text matching — no `contains`, `startsWith`, regex.
-- Destructure precondition data in `steps()` — never hardcode.
-- Every step has `.as("description")`.
-
-## After exploring: implementing many stubs
-
-Exploration typically produces a batch of stubbed tests. **Implement them in parallel via subagents** — see `/ripplo:create` → "Parallelizing multi-stub sessions". Don't serialize, and don't let the stub count pressure you into narrowing scope; `/ripplo:scope` forbids trimming for size reasons.
+Symptoms of leakage: unique-constraint errors, 401/403 mid-test, vanishing session cookies. Fix the precondition, not the test.

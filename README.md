@@ -1,6 +1,6 @@
 # Ripplo — Claude Code Plugin
 
-AI-powered end-to-end testing skills for [Claude Code](https://claude.ai/code).
+**Ripplo closes the loop on full-stack app development.** When an agent (or human) ships a user-facing change, Ripplo ensures there is a deterministic, backend-aware test proving it works end-to-end — UI, API, database, async jobs. Tests are how you and the user agree on what success looks like: preconditions define the starting state, observers assert backend mutations, and coverage IDs ensure no interaction on the app's surface area ships unclaimed. When you stop, you have both the feature and the proof it works.
 
 ## Install
 
@@ -54,7 +54,7 @@ If a change is genuinely test-exempt (pure refactor, infra, internal tooling), w
 
 The exemption auto-invalidates if the diff changes.
 
-Your agent writes deterministic, parallelizable tests that verify your app works end-to-end. No flaky tests, no shared state, no ordering dependencies.
+Your agent writes deterministic, parallelizable tests that verify your app's full stack — UI through backend state — works end-to-end. No flaky tests, no shared state, no ordering dependencies.
 
 ## Skills
 
@@ -78,8 +78,8 @@ npx ripplo
 
 This authenticates, scaffolds a `.ripplo/` directory, and starts the dev dashboard. Scaffolding also writes an initial `.ripplo/ripplo.lock` — a committed, generated artifact that the Ripplo server reads on push-webhook syncs. Keep it in sync with your `.ripplo/*.ts` via `npx ripplo compile` (or the pre-commit hook the `/ripplo:setup` skill installs).
 
-## How It Works
+## What your agent does
 
-Your agent uses these skills to read your codebase, discover testable user flows, and generate typed test specs — no manual test writing required. Each test defines its own preconditions, starting URL, and interaction steps using the `@ripplo/testing` DSL.
+Your agent uses these skills to map the app's user-facing surface area, define success criteria as typed test specs, and keep app code and tests in lockstep. Each test defines its own preconditions, starting URL, interaction steps, and backend observers using the `@ripplo/testing` DSL — no manual test writing required.
 
 Learn more at [ripplo.ai](https://ripplo.ai).

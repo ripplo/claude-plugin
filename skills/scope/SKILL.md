@@ -5,6 +5,8 @@ description: "Manage Testing Scope — your working memory for what end-to-end f
 
 # Testing Scope
 
+Scope is where you and the user **define success criteria** for this session: the set of end-to-end flows that must pass for the work to count as done. It's the contract that keeps app code and tests in lockstep — the loop-closing artifact that turns "the user said X" into "these flows prove X works."
+
 ## Your responsibility
 
 Maintaining an accurate, sufficiently broad scope is **your** job — not the user's. The user describes what they're building; you translate that into the set of e2e flows that must pass to prove the feature actually works.
@@ -20,11 +22,6 @@ For any non-trivial change:
 Under-scoping is the default failure mode. When in doubt, scope it in.
 
 **Edited tests auto-scope.** Any edit to `.ripplo/tests/<id>.ts` is automatically added to scope by the `post-edit-lint` hook. You don't need to run `scope add` for tests you're actively editing. Use `scope add` explicitly only when binding an already-existing test you didn't edit this session, and `scope remove` when a test is genuinely out of scope (removal remains manual — editing a test after removing it will re-scope it).
-
-## Related skills (load these too)
-
-- `/ripplo:explore` — discover flows and stub tests
-- `/ripplo:create` — per-test authoring workflow
 
 ## What scope is
 

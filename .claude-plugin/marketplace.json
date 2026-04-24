@@ -2,13 +2,13 @@
   "name": "ripplo",
   "owner": { "name": "Ripplo" },
   "metadata": {
-    "description": "A tight validation loop for app-building agents. Hooks enforce tests exist for user-facing edits; skills author and run deterministic, backend-aware E2E tests; replay UI shows exactly what happened."
+    "description": "Close the loop on full-stack app delivery. Agents and users define success criteria as deterministic, backend-aware e2e tests; hooks enforce that every user-facing edit is covered; replay UI shows exactly what happened."
   },
   "plugins": [
     {
       "name": "ripplo",
       "source": "./",
-      "description": "A tight validation loop for app-building agents. Hooks enforce tests exist for user-facing edits; skills author and run deterministic, backend-aware E2E tests; replay UI shows exactly what happened.",
+      "description": "Close the loop on full-stack app delivery. Agents and users define success criteria as deterministic, backend-aware e2e tests; hooks enforce that every user-facing edit is covered; replay UI shows exactly what happened.",
       "category": "testing",
       "keywords": ["e2e", "testing", "tests", "playwright", "qa"],
       "homepage": "https://ripplo.ai",
