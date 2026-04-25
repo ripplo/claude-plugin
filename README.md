@@ -15,27 +15,16 @@ In Claude Code, run:
 
 The plugin hooks into your agent's workflow to create a tight validation loop around `.notImplemented()` stubs — the test lifecycle goes **stub in plan → implement with code → validate at stop**:
 
-- **UserPromptSubmit** — reminds the agent of `.notImplemented()` stubs during plan mode, and nudges mid-session when `watchPaths` code has drifted from `.ripplo/tests` updates
+- **UserPromptSubmit** — reminds the agent of `.notImplemented()` stubs during plan mode, and nudges mid-session when user-facing code has drifted from `.ripplo/tests` updates
 - **PreToolUse: ExitPlanMode** — blocks plan exit if the plan touches user-facing code but cites no `.ripplo/tests` stubs
-- **PostToolUse (Edit/Write)** — lints the DSL on `.ripplo/**` edits and flags remaining stubs on edits matching `watchPaths`
-- **Stop** — lints, surfaces remaining stubs, runs changed tests, and **blocks on coverage drift**: user-facing changes with no corresponding `.ripplo/tests` update
+- **PostToolUse (Edit/Write)** — lints the DSL on `.ripplo/**` edits and flags remaining stubs on user-facing edits
+- **Stop** — lints, surfaces remaining stubs, runs all scoped + changed tests, and **blocks on coverage drift**: user-facing changes with no corresponding `.ripplo/tests` update
 
 All hook logic lives in the `ripplo` CLI (`ripplo hook <name>`) — no shell scripts, no `jq`, Windows-safe.
 
-### Configuring watch paths
+### Watch paths
 
-By default the plugin treats common web source globs as user-facing (`src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, `components/**`) and ignores generated/vendor output. Override in `.ripplo/ripplo.ts`:
-
-```ts
-createRipplo(
-  {
-    // ...existing config
-    watchPaths: ["app/frontend/**", "lib/controllers/**"],
-    ignorePaths: ["**/*.gen.*", "**/vendor/**"],
-  },
-  { preconditions, observers, tests },
-);
-```
+The plugin treats common web source globs as user-facing (`src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, `components/**`) and ignores generated/vendor output. Defaults are not currently configurable.
 
 ### Testing Scope
 
@@ -70,16 +59,10 @@ Your agent writes deterministic, parallelizable tests that verify your app's ful
 
 ## Prerequisites
 
-Install and set up the [Ripplo CLI](https://www.npmjs.com/package/ripplo) first:
+Install the [Ripplo CLI](https://www.npmjs.com/package/ripplo), then authenticate:
 
 ```sh
-npx ripplo
+npx ripplo auth login
 ```
 
-This authenticates, scaffolds a `.ripplo/` directory, and starts the dev dashboard. Scaffolding also writes an initial `.ripplo/ripplo.lock` — a committed, generated artifact that the Ripplo server reads on push-webhook syncs. Keep it in sync with your `.ripplo/*.ts` via `npx ripplo compile` (or the pre-commit hook the `/ripplo:setup` skill installs).
-
-## What your agent does
-
-Your agent uses these skills to map the app's user-facing surface area, define success criteria as typed test specs, and keep app code and tests in lockstep. Each test defines its own preconditions, starting URL, interaction steps, and backend observers using the `@ripplo/testing` DSL — no manual test writing required.
-
-Learn more at [ripplo.ai](https://ripplo.ai).
+After that, run `/ripplo:setup` from Claude Code — it orchestrates `ripplo init` (scaffolds `.ripplo/`, writes `RIPPLO_*` env vars, installs `@ripplo/testing`), wires `ripplo watch` into your dev script, and mounts the engine adapter into your app server. Scaffolding also writes an initial `.ripplo/ripplo.lock` — a committed, generated artifact the Ripplo server reads on push-webhook syncs. Keep it in sync with your `.ripplo/*.ts` via `npx ripplo compile` (or the pre-commit hook `/ripplo:setup` installs).

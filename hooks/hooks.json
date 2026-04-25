@@ -42,6 +42,15 @@
             "command": "npx ripplo hook post-edit-flag-stubs"
           }
         ]
+      },
+      {
+        "matcher": "Skill",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx ripplo hook track-skill-load"
+          }
+        ]
       }
     ],
     "PreToolUse": [
@@ -60,6 +69,19 @@
           {
             "type": "command",
             "command": "npx ripplo hook pre-edit-scope-gate"
+          },
+          {
+            "type": "command",
+            "command": "npx ripplo hook pre-edit-ripplo-skill-gate"
+          }
+        ]
+      },
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx ripplo hook pre-bash-run-gate"
           }
         ]
       }
