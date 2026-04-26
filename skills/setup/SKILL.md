@@ -58,6 +58,8 @@ Init scaffolds `.ripplo/{index.ts, tsconfig.json, project.json, preconditions/, 
 
 Install `concurrently` if missing: `npm i -D concurrently` (or `pnpm add -wD concurrently`).
 
+**Then start the dev script as a background process** — `ripplo watch` only goes live once it's running, and steps 7–8 (`ripplo doctor`, the first run) depend on it. Use `Bash` with `run_in_background` (Claude owns the dev process; don't ask the user to run it in another terminal). If a previous `pnpm dev` is already running from this session, leave it — adding the `ripplo watch` leg requires a restart, so kill and restart it.
+
 ## 4. Append `ENABLE_RIPPLO_TESTING=true` to the env file
 
 The adapter is gated on this flag so it can't ship to prod. Init wrote the three `RIPPLO_*` vars; append the gate.

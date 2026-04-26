@@ -9,6 +9,10 @@ Scope is the contract that defines success criteria for this session: the set of
 
 **Scope vs coverage.** Scope is _intent_ — "these flows matter this session." Coverage (`.coverage(...)` per test, enforced by `stop-enforce`) is _proof_ — "every new interaction in the diff is claimed by some test." Scope a flow → stub a test → implement with `.coverage(...ids)`.
 
+## Prerequisite — dev session must be live
+
+Scope lives in the dev-session DB, which only exists while `ripplo watch` is running. That requires the user's dev script (e.g. `pnpm dev`) to be running. Run `npx ripplo doctor` first — if it reports no active dev session, start the dev script as a background process (`Bash` with `run_in_background`) before continuing. Without it, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
+
 ## Your responsibility
 
 Maintaining accurate, sufficiently broad scope is **your** job — not the user's. They describe what they're building; you translate to the e2e flows that must pass.

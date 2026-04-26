@@ -7,6 +7,10 @@ description: "Guided codebase crawl to plan and stub Ripplo tests. Use when sett
 
 Map the app's user-facing surface area; stub a `.notImplemented()` test for every flow that should ship with verification. Implementation happens in `/ripplo:create`.
 
+## Prerequisite — dev session must be live
+
+This skill needs `ripplo watch` running, which requires the user's dev script (e.g. `pnpm dev`) to be running. Run `npx ripplo doctor` first — if it reports no active dev session, start the dev script as a background process (`Bash` with `run_in_background`) before continuing. Without it, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
+
 ## Setup
 
 1. Read `packages/testing/README.md` (DSL, preconditions, determinism rules).

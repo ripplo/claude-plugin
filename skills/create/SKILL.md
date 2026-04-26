@@ -7,6 +7,10 @@ description: "Create a new Ripplo test spec. Use when adding a new e2e test for 
 
 If the flow doesn't work yet, fix the app first or in lockstep — never weaken the test to paper over an app bug. Observer wiring on mutation flows is in-scope work, not follow-up.
 
+## Prerequisite — dev session must be live
+
+This skill needs `ripplo watch` running, which requires the user's dev script (e.g. `pnpm dev`) to be running. Run `npx ripplo doctor` first — if it reports no active dev session, start the dev script as a background process (`Bash` with `run_in_background`) before continuing. Without it, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
+
 ## Procedure
 
 1. Read `packages/testing/README.md` for DSL reference and determinism rules.
