@@ -11,6 +11,41 @@ If the flow doesn't work yet, fix the app first or in lockstep — never weaken 
 
 This skill needs two background processes running: the app's dev server, and `npx ripplo watch`. Run `npx ripplo doctor` first — if either is missing, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`) and start the app dev server the same way if it isn't up. Without watch, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
 
+## Canonical builder chains
+
+```ts
+// Precondition — single chain shape (stub vs implemented is decided by engine.ts wiring, not the DSL)
+precondition("ns:name")
+  .description("…")
+  .requires({ dep }) // optional
+  .contract<{ fooId: string }>();
+```
+
+```ts
+// Observer — single chain shape (stub vs implemented is decided by engine.ts wiring, not the DSL)
+observer("ns:name")
+  .description("…")
+  .budget("fast") // "fast" | "slow" | "async"
+  .input<{ … }>()
+  .contract();
+```
+
+```ts
+// Test — implemented
+test("id")
+  .name("…")
+  .requires({ dep })
+  .expectedOutcome("…")
+  .startsAt(({ dep }) => "/path")
+  .steps(({ dep }) => [
+    /* … */
+  ])
+  .coverage("file#Component.kind[label]");
+
+// Test — stub (terminates early; no startsAt/steps/coverage)
+test("id").name("…").requires({ dep }).expectedOutcome("…").notImplemented();
+```
+
 ## Procedure
 
 1. Read `packages/testing/README.md` for DSL reference and determinism rules.
@@ -109,7 +144,7 @@ When implementing more than ~3 stubs, fan out subagents — don't author seriall
 
 ## Adding a precondition or observer
 
-Declared in `.ripplo/`; **must be in the registry** that `.ripplo/index.ts` passes to `createRipplo`.
+Declared in `.ripplo/`; **must be in the registry** that `.ripplo/index.ts` passes to `createRipplo`. Chain order is fixed — see "Canonical builder chains" above.
 
 ```ts
 // .ripplo/preconditions/index.ts
@@ -121,6 +156,8 @@ export const dataThing = precondition("data:thing")
 export const preconditions = { authLoggedIn, dataThing };
 ```
 
+Observer `.input<T>()` and precondition `.contract<T>()` accept any primitive (`string | number | boolean`):
+
 ```ts
 // .ripplo/observers/index.ts
 export const thingIs = observer("thing:is")
@@ -128,10 +165,25 @@ export const thingIs = observer("thing:is")
   .input<{ thingId: string; expectedValue: string }>()
   .contract();
 
-export const observers = { thingIs };
+export const orgOverageCapIs = observer("org:overage-cap-is")
+  .input<{ orgId: string; expectedCapCents: number }>()
+  .contract();
+
+export const orgHasLogo = observer("org:has-logo")
+  .input<{ orgId: string; expectLogo: boolean }>()
+  .contract();
+
+export const observers = { thingIs, orgOverageCapIs, orgHasLogo };
 ```
 
-Then implement in `<app>/src/test/engine.ts` — `createEngine(ripplo, {...})` is exhaustiveness-checked, so TS flags missing impls:
+```ts
+// .ripplo/preconditions/index.ts
+export const dataInvoice = precondition("data:invoice")
+  .requires({ auth: authLoggedIn })
+  .contract<{ invoiceId: string; amountCents: number; isPaid: boolean }>();
+```
+
+Implement in `<app>/src/test/engine.ts` — `createEngine(ripplo, {...})` is exhaustiveness-checked. Observer impls receive params at the declared primitive type with no coercion:
 
 ```ts
 export const engine = createEngine(ripplo, {
@@ -139,9 +191,11 @@ export const engine = createEngine(ripplo, {
     dataThing: { setup: async (ctx, { auth }) => ..., teardown: async () => ... },
   },
   observers: {
-    thingIs: async (ctx, { thingId, expectedValue }) => {
-      // ctx.pass() | ctx.retry(reason) | ctx.fail(reason)
-    },
+    thingIs: async (ctx, { thingId, expectedValue }) => ...,
+    orgOverageCapIs: async (ctx, { orgId, expectedCapCents }) =>
+      org.overageCapCents === expectedCapCents ? ctx.pass() : ctx.retry("..."),
+    orgHasLogo: async (ctx, { orgId, expectLogo }) =>
+      hasLogo === expectLogo ? ctx.pass() : ctx.retry("..."),
   },
 });
 ```
@@ -152,7 +206,8 @@ Never declare `precondition(...)` or `observer(...)` in app code.
 
 Tests run in parallel. Every `setup()` must produce isolated, non-conflicting data:
 
-- **Unique identifiers** via `ctx`: `ctx.uniqueId(prefix)`, `ctx.uniqueEmail()`, `ctx.runId`. `ctx.fixed(value)` only for shared constants (e.g. test password) — never names/emails/ids.
+- **Unique identifiers** via `ctx`: `ctx.uniqueId(prefix)`, `ctx.uniqueEmail()`, `ctx.runId`. `ctx.fixed(value)` only for shared constants (e.g. test password) — never names/emails/ids. Accepts any primitive (`string | number | boolean`).
+- ctx helpers return plain primitives — use them directly in templates and observer params. Hardcoded literals in `setup()` returns are rejected at compile time.
 - **Return dynamic IDs** — `setup()` return flows into `requires()` destructuring; tests reference by id, not hardcoded slug.
 - **Scoped teardown.** Delete only entities created by _this_ setup invocation, by id. Never `deleteMany` by prefix or `TRUNCATE`.
 - **Independent sessions.** Each setup creates its own auth session.
