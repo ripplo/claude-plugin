@@ -19,9 +19,20 @@ Device-code flow opens a browser; the human has to do this. Verify with `npx rip
 
 ## 2. Collect answers, run `ripplo init`
 
-Ask the user via `AskUserQuestion`:
+First, fetch the user's projects so you can resolve the project yourself — never ask the user to paste a project id:
 
-- **Project**: ask for the project id from the Ripplo dashboard. Skip if they only have one project (`init` auto-selects).
+```sh
+npx ripplo projects list
+```
+
+Output is JSON: `{ "projects": [{ "id": "...", "name": "..." }] }`. Then:
+
+- **0 projects** — stop and tell the user to create one in the Ripplo dashboard before re-running setup.
+- **1 project** — auto-select; omit `--project` (init also auto-selects, but passing the id is fine).
+- **2+ projects** — `AskUserQuestion` with the project **names** as options, then map the chosen name back to its id.
+
+Then ask the user via `AskUserQuestion` for the remaining answers (never the project id):
+
 - **Env file**: which file the host app's dev server loads. Path is **relative to `.ripplo/`** — repo-root `.env.local` is `../.env.local`; monorepo `apps/server/.env` is `../apps/server/.env`. Next.js loads `.env.local` automatically; Vite needs `loadEnv`; Express usually `.env` via `dotenv`. Default `../.env.local`.
 - **App URL**: dev server URL. Default `http://localhost:3000`.
 - **Engine URL** (optional): defaults to `<app-url>/ripplo`. Override when the adapter mounts at a different prefix, or when the backend runs on a different port than the frontend (e.g. Vite frontend on `:5173`, API on `:3000` → `RIPPLO_ENGINE_URL=http://localhost:3000/ripplo`).
