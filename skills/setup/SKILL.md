@@ -1,11 +1,11 @@
 ---
 name: setup
-description: "Initialize Ripplo from zero in a project: orchestrate `ripplo auth login` → `ripplo init` → wire `ripplo watch` into the dev script → mount the engine adapter → hand off to `/ripplo:create` to author and run the user's first test so onboarding can advance. Use when a project has no `.ripplo/` directory yet, or when `ripplo doctor` reports the engine endpoint is missing."
+description: "Initialize Ripplo from zero in a project: orchestrate `ripplo auth login` → `ripplo init` → start `ripplo watch` as a background process → mount the engine adapter → hand off to `/ripplo:create` to author and run the user's first test so onboarding can advance. Use when a project has no `.ripplo/` directory yet, or when `ripplo doctor` reports the engine endpoint is missing."
 ---
 
 # Ripplo Setup
 
-Flow: **user logs in once → Claude runs `ripplo init` → Claude wires `ripplo watch` into the dev script → Claude mounts the engine adapter → Claude authors and runs a first test**.
+Flow: **user logs in once → Claude runs `ripplo init` → Claude starts `ripplo watch` as a background process → Claude mounts the engine adapter → Claude authors and runs a first test**.
 
 > **First-time onboarding only:** if `.ripplo/tests/` already has tests (i.e. this is a re-run of setup, a worktree, or a re-mount after the adapter was removed), stop after step 7 — the "first passing run" requirement in step 8 only applies the first time a project is being set up. The web onboarding UI blocks its "Continue" button on a passing run, so skipping step 8 during true first-time setup leaves the user stuck.
 
@@ -45,20 +45,11 @@ npx ripplo init --project <id> --env-file ../.env.local --app-url <url> [--engin
 
 Init scaffolds `.ripplo/{index.ts, tsconfig.json, project.json, preconditions/, observers/, tests/}`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPPLO_WEBHOOK_SECRET` to the chosen env file, installs `@ripplo/testing`, compiles the initial lockfile, and ensures the Playwright browser. **Don't hand-write any of those files** — init owns scaffolding.
 
-## 3. Wire `ripplo watch` into `scripts.dev`
+## 3. Start `ripplo watch` as a background process
 
-`ripplo watch` is the always-on local executor; it must run alongside the app dev server. Edit `package.json` directly — the user reviews the diff afterward.
+`ripplo watch` is the local executor and must be running for the dev session to be live. Spawn it via `Bash` with `run_in_background`, set `cwd` to the directory containing `.ripplo/` (use the workspace root in monorepos). The user's app dev server is a separate process — make sure it's also running (start it the same way if it isn't, or skip if the user already has it up).
 
-- Single command (`"dev": "next dev"`) → wrap with `concurrently`:
-  ```json
-  "dev": "concurrently -k -n app,ripplo \"next dev\" \"ripplo watch\""
-  ```
-- Already uses `concurrently` / `npm-run-all` → add a `ripplo watch` leg.
-- Turbo monorepo → add `ripplo watch` to the orchestrating `dev` task.
-
-Install `concurrently` if missing: `npm i -D concurrently` (or `pnpm add -wD concurrently`).
-
-**Then start the dev script as a background process** — `ripplo watch` only goes live once it's running, and steps 7–8 (`ripplo doctor`, the first run) depend on it. Use `Bash` with `run_in_background` (Claude owns the dev process; don't ask the user to run it in another terminal). If a previous `pnpm dev` is already running from this session, leave it — adding the `ripplo watch` leg requires a restart, so kill and restart it.
+Steps 7–8 (`ripplo doctor`, the first run) depend on watch being live, so do this before moving on.
 
 ## 4. Append `ENABLE_RIPPLO_TESTING=true` to the env file
 
@@ -110,7 +101,7 @@ With husky/lefthook/simple-git-hooks, gate the same `npx ripplo compile --check`
 
 ## 7. Verify install
 
-`npx ripplo doctor` — resolve every issue. Start the dev script and confirm `ripplo watch` reports the dev session is live.
+`npx ripplo doctor` — resolve every issue. Confirm both checks are green: the app's dev server is reachable, and the dev session is live (`ripplo watch` running).
 
 ## 8. Author and run a first test (first-time setup only)
 
@@ -129,5 +120,5 @@ For a true first-time setup (no existing tests), setup isn't complete until the 
 - Never hardcode `enabled: true`.
 - Adapter mount path must match `RIPPLO_ENGINE_URL` suffix — mismatches silently fail.
 - Prefer a first-class adapter; raw engine only for unsupported frameworks.
-- `ripplo watch` runs from the directory containing `.ripplo/` — verify the dev script's `cwd` in monorepos.
+- `ripplo watch` runs from the directory containing `.ripplo/` — set the Bash `cwd` accordingly in monorepos.
 - **Worktrees are self-contained** (own DevSession, scope, debug artifacts), but env files don't carry over (they're typically gitignored) and dev-server ports collide between siblings. In a fresh worktree: copy the env file from main (or symlink to a shared one), pick a distinct dev-server port for this worktree, and **update both `RIPPLO_APP_URL` and `RIPPLO_ENGINE_URL` in that env file to point at the new port** (e.g. `RIPPLO_APP_URL=http://localhost:3001`, `RIPPLO_ENGINE_URL=http://localhost:3001/ripplo`). `ripplo doctor` flags missing env files.

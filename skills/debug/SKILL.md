@@ -7,7 +7,7 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
 
 ## Prerequisite — dev session must be live
 
-Re-running a failed test (the verify step at the end of the loop) needs `ripplo watch` running, which requires the user's dev script (e.g. `pnpm dev`) to be running. Run `npx ripplo doctor` first — if it reports no active dev session, start the dev script as a background process (`Bash` with `run_in_background`) before continuing. Without it, `ripplo run` refuses to dispatch. (Reading artifacts under `.ripplo/debug/` does not require it.)
+Re-running a failed test (the verify step at the end of the loop) needs two background processes: the app's dev server, and `npx ripplo watch`. Run `npx ripplo doctor` first — if either is missing, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`) and start the app dev server the same way if it isn't up. Without watch, `ripplo run` refuses to dispatch. (Reading artifacts under `.ripplo/debug/` does not require either.)
 
 ## Read artifacts first, re-run last
 

@@ -19,8 +19,8 @@ npx ripplo run               # full suite — minutes of compute, use sparingly
 
 ## Requirements
 
-- `npx ripplo doctor` is the canonical preflight — it reports both `dev-server` (app at `RIPPLO_APP_URL` reachable) and `dev-session` (`ripplo watch` live for this cwd). If either fails, `ripplo run` will refuse to dispatch.
-- The dev session goes live when the user's dev script (e.g. `pnpm dev`) is running with `ripplo watch` wired in (usually via `concurrently`). If `doctor` reports no active dev session, start the dev script as a background process (`Bash` with `run_in_background`) before retrying.
+- `npx ripplo doctor` is the canonical preflight — it reports both `dev-server` (app at `RIPPLO_APP_URL` reachable) and `dev-session` (`ripplo watch` live for this cwd) as independent checks. If either fails, `ripplo run` will refuse to dispatch.
+- If `dev-session` is red, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`). If `dev-server` is red, start the app's dev server the same way.
 - `npx ripplo run` already compiles + syncs `.ripplo/` resources on demand before each invocation. If the server appears out of sync independently of a run (e.g. the diagnostic says `"<slug>" was synced but the server didn't return it`), use `npx ripplo sync` to re-push.
 
 ## On failure

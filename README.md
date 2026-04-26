@@ -65,4 +65,4 @@ Install the [Ripplo CLI](https://www.npmjs.com/package/ripplo), then authenticat
 npx ripplo auth login
 ```
 
-After that, run `/ripplo:setup` from Claude Code — it orchestrates `ripplo init` (scaffolds `.ripplo/`, writes `RIPPLO_*` env vars, installs `@ripplo/testing`), wires `ripplo watch` into your dev script, and mounts the engine adapter into your app server. Scaffolding also writes an initial `.ripplo/ripplo.lock` — a committed, generated artifact the Ripplo server reads on push-webhook syncs. Keep it in sync with your `.ripplo/*.ts` via `npx ripplo compile` (or the pre-commit hook `/ripplo:setup` installs).
+After that, run `/ripplo:setup` from Claude Code — it orchestrates `ripplo init` (scaffolds `.ripplo/`, writes `RIPPLO_*` env vars, installs `@ripplo/testing`), starts `ripplo watch` as a background process, and mounts the engine adapter into your app server. Scaffolding also writes an initial `.ripplo/ripplo.lock` — a committed, generated artifact the Ripplo server reads on push-webhook syncs. Keep it in sync with your `.ripplo/*.ts` via `npx ripplo compile` (or the pre-commit hook `/ripplo:setup` installs).

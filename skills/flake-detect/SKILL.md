@@ -15,7 +15,7 @@ Triggers:
 
 ## Prerequisite — dev session must be live
 
-This skill needs `ripplo watch` running, which requires the user's dev script (e.g. `pnpm dev`) to be running. Run `npx ripplo doctor` first — if it reports no active dev session, start the dev script as a background process (`Bash` with `run_in_background`) before continuing. Without it, `ripplo run` refuses to dispatch.
+This skill needs two background processes running: the app's dev server, and `npx ripplo watch`. Run `npx ripplo doctor` first — if either is missing, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`) and start the app dev server the same way if it isn't up. Without watch, `ripplo run` refuses to dispatch.
 
 ```sh
 npx ripplo flake-detect <id> --runs=10

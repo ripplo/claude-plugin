@@ -68,6 +68,10 @@
         "hooks": [
           {
             "type": "command",
+            "command": "npx ripplo hook pre-edit-watch-gate"
+          },
+          {
+            "type": "command",
             "command": "npx ripplo hook pre-edit-scope-gate"
           },
           {
@@ -79,6 +83,10 @@
       {
         "matcher": "Bash",
         "hooks": [
+          {
+            "type": "command",
+            "command": "npx ripplo hook pre-bash-hooks-pause-gate"
+          },
           {
             "type": "command",
             "command": "npx ripplo hook pre-bash-run-gate"
