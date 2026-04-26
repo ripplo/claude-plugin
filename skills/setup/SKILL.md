@@ -38,10 +38,10 @@ Then ask the user via `AskUserQuestion` for the remaining answers (never the pro
 - **Engine URL** (optional): defaults to `<app-url>/ripplo`. Override when the adapter mounts at a different prefix, or when the backend runs on a different port than the frontend (e.g. Vite frontend on `:5173`, API on `:3000` → `RIPPLO_ENGINE_URL=http://localhost:3000/ripplo`).
 
 ```sh
-npx ripplo init --project <id> --env-file ../.env.local --app-url <url> [--engine-url <url>]
+npx ripplo init --project <id> --env ../.env.local --app-url <url> [--engine-url <url>]
 ```
 
-`--env-file` is **relative to `.ripplo/`** (so a repo-root `.env.local` is `../.env.local`).
+`--env` is **relative to `.ripplo/`** (so a repo-root `.env.local` is `../.env.local`).
 
 Init scaffolds `.ripplo/{index.ts, tsconfig.json, project.json, preconditions/, observers/, tests/}`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPPLO_WEBHOOK_SECRET` to the chosen env file, installs `@ripplo/testing`, compiles the initial lockfile, and ensures the Playwright browser. **Don't hand-write any of those files** — init owns scaffolding.
 
