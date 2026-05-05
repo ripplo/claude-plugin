@@ -15,7 +15,7 @@ Most users have never used Ripplo before. As you move through these steps, narra
 
 Avoid Ripplo-internal terms ("engine", "adapter", "executor", "preconditions", "observers", "lockfile") in user-facing questions until you've explained them. When you must use one, define it the first time.
 
-> **First-time onboarding only:** if `.ripplo/tests/` already has tests (i.e. this is a re-run of setup, a worktree, or a re-mount after the adapter was removed), stop after step 7 — the "first passing run" requirement in step 8 only applies the first time a project is being set up. The web onboarding UI blocks its "Continue" button on a passing run, so skipping step 8 during true first-time setup leaves the user stuck.
+> **First-time onboarding only:** if `.ripplo/tests/` already has tests (i.e. this is a re-run of setup, a worktree, or a re-mount after the adapter was removed), stop after step 6 — the "first passing run" requirement in step 7 only applies the first time a project is being set up. The web onboarding UI blocks its "Continue" button on a passing run, so skipping step 7 during true first-time setup leaves the user stuck.
 
 ## 1. User authenticates
 
@@ -53,21 +53,19 @@ npx ripplo init --project <id> --env ../.env.local --app-url <url> [--engine-url
 
 `--env` is **relative to `.ripplo/`** (so a repo-root `.env.local` is `../.env.local`).
 
-Init scaffolds `.ripplo/{index.ts, tsconfig.json, project.json, preconditions/, observers/, tests/}`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPPLO_WEBHOOK_SECRET` to the chosen env file, installs `@ripplo/testing`, compiles the initial lockfile, and ensures the Playwright browser. **Don't hand-write any of those files** — init owns scaffolding.
+Init scaffolds `.ripplo/{index.ts, tsconfig.json, project.json, preconditions/, observers/, tests/}`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPPLO_WEBHOOK_SECRET` / `ENABLE_RIPPLO_TESTING=true` to the chosen env file, installs `@ripplo/testing`, compiles the initial lockfile, and ensures the Playwright browser. **Don't hand-write any of those files** — init owns scaffolding.
 
 ## 3. Start `ripplo watch` as a background process
 
 `ripplo watch` is the long-running process that actually executes tests in a local browser when you (or the dashboard) trigger a run. It must stay alive for the duration of the dev session. Spawn it via `Bash` with `run_in_background`, set `cwd` to the directory containing `.ripplo/` (workspace root in monorepos). Tell the user: "I'm starting `ripplo watch` in the background — this is what runs your tests locally. Leave it running while you work." The user's app dev server is a separate process — make sure it's also running (start it the same way if it isn't, or skip if it's already up).
 
-Steps 7–8 (`ripplo doctor`, the first run) depend on watch being live, so do this before moving on.
+Steps 6–7 (`ripplo doctor`, the first run) depend on watch being live, so do this before moving on.
 
-## 4. Append `ENABLE_RIPPLO_TESTING=true` to the env file
+## 4. Mount the engine adapter
 
-This flag is the kill switch for the test integration on the user's backend — the adapter (next step) refuses to do anything unless `ENABLE_RIPPLO_TESTING=true`, so the test routes can never accidentally run in production. Init wrote the three `RIPPLO_*` vars; append this one yourself and tell the user what it does ("This flag turns on test-only routes in your backend. It should only ever be `true` in dev — never set it in prod.").
+Init wrote `ENABLE_RIPPLO_TESTING=true` to the env file alongside the `RIPPLO_*` vars. This flag is the kill switch for the test integration on the user's backend — the adapter refuses to do anything unless it's `true`, so the test routes can never accidentally run in production. Tell the user: "Init added `ENABLE_RIPPLO_TESTING=true` to your env file — this turns on the test-only routes I'm about to add. It should only ever be `true` in dev — never set it in prod."
 
-## 5. Mount the engine adapter
-
-Before editing, explain to the user what you're about to do: "I'm adding a small route to your backend (mounted at `/ripplo` by default, behind the `ENABLE_RIPPLO_TESTING` flag from step 4). Tests use it to set up data they need before running (preconditions) and to verify backend state after running (observers) — without your test code having to touch the database directly."
+Before editing, explain to the user what you're about to do: "I'm adding a small route to your backend (mounted at `/ripplo` by default, behind the `ENABLE_RIPPLO_TESTING` flag). Tests use it to set up data they need before running (preconditions) and to verify backend state after running (observers) — without your test code having to touch the database directly."
 
 Detect the framework from `package.json` and use the matching adapter from `packages/testing/README.md` ("Server adapters"): `@ripplo/testing/{express,fastify,nextjs,hono,koa,nestjs,elysia}`, or the raw engine for unsupported frameworks.
 
@@ -97,7 +95,7 @@ app.use(
 
 **Bind `enabled` to the env flag — never hardcode `true`.** The mount path **must match** the `RIPPLO_ENGINE_URL` suffix.
 
-## 6. Install the pre-commit hook
+## 5. Install the pre-commit hook
 
 ```sh
 #!/bin/sh
@@ -111,11 +109,11 @@ fi
 
 With husky/lefthook/simple-git-hooks, gate the same `npx ripplo compile --check` on staged `.ripplo/**/*.ts`.
 
-## 7. Verify install
+## 6. Verify install
 
-Run `npx ripplo doctor` and resolve every issue before moving on. The two key checks: the app's dev server is reachable at `RIPPLO_APP_URL`, and the dev session is live (`ripplo watch` running). If something's red, fix it (or restart the relevant process) — don't continue to step 8 with warnings outstanding. Briefly tell the user what doctor confirmed ("Your dev server and the local executor are both up — Ripplo can reach them.") so they know setup is on track.
+Run `npx ripplo doctor` and resolve every issue before moving on. The two key checks: the app's dev server is reachable at `RIPPLO_APP_URL`, and the dev session is live (`ripplo watch` running). If something's red, fix it (or restart the relevant process) — don't continue to step 7 with warnings outstanding. Briefly tell the user what doctor confirmed ("Your dev server and the local executor are both up — Ripplo can reach them.") so they know setup is on track.
 
-## 8. Author and run a first test (first-time setup only)
+## 7. Author and run a first test (first-time setup only)
 
 **Skip this step if `.ripplo/tests/` already contains tests** — re-runs of setup, worktrees, and adapter remounts don't need to produce a fresh passing run, and the user isn't sitting in the onboarding UI.
 
@@ -127,7 +125,7 @@ For a true first-time setup (no existing tests), setup isn't complete until the 
 
 ## Rules
 
-- First-time setup isn't done until one test has passed — the onboarding "Continue" button waits on this signal. If `.ripplo/tests/` already has tests, step 8 doesn't apply and stopping at step 7 is correct.
+- First-time setup isn't done until one test has passed — the onboarding "Continue" button waits on this signal. If `.ripplo/tests/` already has tests, step 7 doesn't apply and stopping at step 6 is correct.
 - Never bypass webhook signature checking or hardcode the secret.
 - Never hardcode `enabled: true`.
 - Adapter mount path must match `RIPPLO_ENGINE_URL` suffix — mismatches silently fail.
