@@ -52,6 +52,7 @@ test("id").name("…").requires({ dep }).expectedOutcome("…").notImplemented()
 2. **Stub first** with `.notImplemented()` so the stub→implementation transition shows in `npx ripplo status`.
 3. **Scope it.** `npx ripplo scope status`; link if a user item matches, else `scope add <id>` (variadic). See `/ripplo:scope`.
 4. **Register the file** — add the exported `TestDefinition` to the `tests` array in `.ripplo/tests/index.ts`. Unregistered tests don't exist.
+   - **Place the file in the most relevant existing subfolder** under `.ripplo/tests/` (e.g. `billing/`, `agents/`, `dev-mode/`). The folder is the test's group in the sidebar — keeping related tests together is what makes a growing list scannable. Create a new folder only if no existing one fits and at least 2–3 related tests would land there together. When placing in a subfolder, imports use `../../observers/index` and `../../preconditions/index` (one extra `..` per level of nesting).
 5. Browse `.ripplo/preconditions/index.ts`; declare a new precondition there if none fits (see "Adding a precondition or observer" below).
 6. Read the relevant component/route source for real ARIA roles, button text, form fields. **Never fabricate locators.** If the app lacks accessible names, add them to the app first — don't fall back to `testId()`.
 7. **Trace every mutation to the backend.** For each click/submit/upload, follow it to the resolver or route handler. Pick an existing observer or declare a new one _now_, before writing steps.
@@ -62,8 +63,8 @@ test("id").name("…").requires({ dep }).expectedOutcome("…").notImplemented()
    import { click, fill } from "@ripplo/testing/actions";
    import { assert } from "@ripplo/testing/assert";
    import { role } from "@ripplo/testing/locators";
-   import { dataProject } from "../preconditions/index.js";
-   import { orgNameIs } from "../observers/index.js";
+   import { dataProject } from "../preconditions/index";
+   import { orgNameIs } from "../observers/index";
 
    export const updateOrgName = test("update-org-name")
      .name("Update organization name")

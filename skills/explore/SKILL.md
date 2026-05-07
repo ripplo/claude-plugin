@@ -49,7 +49,7 @@ For each flow, create a `.notImplemented()` stub in `.ripplo/tests/<id>.ts` and 
 ```ts
 // .ripplo/tests/my-flow.ts
 import { test } from "@ripplo/testing";
-import { dataProject } from "../preconditions/index.js";
+import { dataProject } from "../preconditions/index";
 
 export const myFlow = test("my-flow")
   .name("My user flow")
@@ -61,7 +61,7 @@ export const myFlow = test("my-flow")
 
 ```ts
 // .ripplo/tests/index.ts
-import { myFlow } from "./my-flow.js";
+import { myFlow } from "./my-flow";
 export const tests = [myFlow] as const;
 ```
 
