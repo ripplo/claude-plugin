@@ -19,21 +19,22 @@ Anti-patterns:
 
 - Re-running because "maybe it'll pass this time." Suspect a flake → use `/ripplo:flake-detect`, never manually re-run.
 - Re-running before reading any artifact.
-- Reading only `summary.txt` and re-running. Always open the failed step's `dom.html` + `accessibility-tree.txt` first.
+- Reading only `summary.txt` and re-running. Always open the failed step's `dom.html` + `accessibility-tree.json` first.
 
 ## Procedure
 
 1. Find the test in `.ripplo/tests/` — id is the string passed to `test("<id>")`, not the filename.
 2. **Use the existing run's artifacts.** Only `npx ripplo run <id>` if there's no recent run, or you've made a fix and need to verify. **Never pipe through `grep`/`tail`/`head`** to find the failed step — Read the artifacts.
 3. Read `.ripplo/debug/<runId>/` in this order:
-   1. `summary.txt` — locate the failed step index.
-   2. `error.txt` — top-level errors (server unreachable, config).
-   3. `steps/<failedIndex>/dom.html` — actual DOM at failure.
-   4. `steps/<failedIndex>/accessibility-tree.txt` — correct ARIA roles/locators.
-   5. `steps/<failedIndex>/storage.json` — auth/session.
-   6. Diff against `steps/<failedIndex - 1>/` to see what changed.
-   7. `console.log`, `network.jsonl`, `page-errors.log`.
-   8. `steps/<failedIndex>/screenshot.png` — last resort; confirms, doesn't diagnose.
+   1. `manifest.md` — index of every artifact, sizes, slicing recipes.
+   2. `summary.txt` — locate the failed step index.
+   3. `error.txt` — top-level errors (server unreachable, config).
+   4. `steps/<failedIndex>/accessibility-tree.json` — correct ARIA roles/locators. Compact NDJSON, one node per line; grep with patterns like `'"role":"button"'`. Reach for `accessibility-tree.full.json` only when the compact view hides what you need.
+   5. `steps/<failedIndex>/dom.html` — actual DOM at failure. Full-fidelity but often large; slice with `sed -n 'A,Bp'` / `grep -n PATTERN | head` rather than reading the whole file.
+   6. `steps/<failedIndex>/storage.json` — auth/session.
+   7. Diff against `steps/<failedIndex - 1>/` to see what changed.
+   8. `console.log`, `network.jsonl`, `page-errors.log`.
+   9. `steps/<failedIndex>/screenshot.png` — last resort; confirms, doesn't diagnose.
 
 ## Common root causes
 
@@ -60,7 +61,7 @@ These surface at `stop-enforce`, not at runtime. Fix `.coverage(...)`, don't re-
 ## Discipline
 
 - **Text first, screenshots second.** Grep `console.log`/`network.jsonl` before opening any image.
-- **Evidence before changes.** Cite a specific artifact line. "I think the locator is wrong" isn't evidence; "accessibility-tree line 42 shows role=link not button" is.
+- **Evidence before changes.** Cite a specific artifact line. "I think the locator is wrong" isn't evidence; "accessibility-tree.json line 42 shows role=link not button" is.
 - **Don't weaken assertions to pass.** App bugs go to the user with failing step + expected/actual + relevant log/source excerpt.
 
 For intermittent behavior, `/ripplo:flake-detect` reproduces flakes under parallel load.
