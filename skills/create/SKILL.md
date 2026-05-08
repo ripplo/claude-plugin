@@ -5,7 +5,7 @@ description: "Create a new Ripplo test spec. Use when adding a new e2e test for 
 
 # Create Ripplo Test
 
-If the flow doesn't work yet, fix the app first or in lockstep — never weaken the test to paper over an app bug. Observer wiring on mutation flows is in-scope work, not follow-up.
+If the flow doesn't work yet, fix the app first or in lockstep — never weaken the test to paper over an app bug. Observer wiring on mutation flows is in-scope work, not follow-up. Same for upload fixtures: `upload(loc, fixture("name"))` requires the file to exist at `.ripplo/fixtures/<name>` (committed bytes; LFS allowed); adding it is part of writing the test, not a follow-up.
 
 ## Prerequisite — dev session must be live
 
