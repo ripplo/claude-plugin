@@ -36,6 +36,8 @@ npx ripplo scope link <scope-item-id> <test-id>    # link a user free-text item 
 npx ripplo scope remove <scope-item-id> [<id>...]  # remove (variadic)
 ```
 
+**Scope drives `ripplo run`.** Bare `npx ripplo run` (no args) auto-adds dirty `.ripplo/tests/*.ts` to scope and then runs every runnable scope item — that's the default verify loop.
+
 ## Rules
 
 - **Edited tests auto-scope after lint passes.** The `post-edit-lint` hook scopes any edit to `.ripplo/tests/<id>.ts` once the file is lint-clean (lint errors block scoping until fixed). Don't run `scope add` for tests you're actively editing — only for previously-existing tests you didn't edit, or after `scope remove` you reversed.

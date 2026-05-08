@@ -6,16 +6,16 @@ description: "Run Ripplo e2e tests via `npx ripplo run`. Use when executing test
 # Run Ripplo Tests
 
 ```sh
+npx ripplo run               # auto-scopes dirty tests + runs scope (default)
 npx ripplo run <id1> <id2>   # specific tests
-npx ripplo run               # full suite — minutes of compute, use sparingly
+npx ripplo run --all         # full suite — minutes of compute, use sparingly
 ```
 
-**Default to the smallest relevant set:**
+**Scope is the unit of iteration.** Bare `ripplo run` runs every runnable test in the current dev-session scope after auto-adding any dirty `.ripplo/tests/*.ts` files. That's the right default while iterating.
 
-- Fixed one test → rerun just that test.
-- Touched a feature area → rerun only the tests covering that area.
-- `npx ripplo scope status` lists the tests this session is responsible for — natural target for a scoped re-run.
-- Full suite only when the user asks, or as a final green-light.
+- Use `npx ripplo scope status` to see what's in scope; `ripplo scope add <id>` to add.
+- Pass explicit ids only to override scope for a one-off rerun.
+- `--all` only when the user explicitly asks. Scope is the green-light surface — if a test isn't in scope, it isn't this session's responsibility.
 
 ## Requirements
 

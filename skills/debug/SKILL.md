@@ -24,7 +24,7 @@ Anti-patterns:
 ## Procedure
 
 1. Find the test in `.ripplo/tests/` — id is the string passed to `test("<id>")`, not the filename.
-2. **Use the existing run's artifacts.** Only `npx ripplo run <id>` if there's no recent run, or you've made a fix and need to verify. **Never pipe through `grep`/`tail`/`head`** to find the failed step — Read the artifacts.
+2. **Use the existing run's artifacts.** Only `npx ripplo run <id>` if there's no recent run, or you've made a fix and need to verify. Verify with the failing test alone, or bare `ripplo run` if the test is already in scope. **Never pipe through `grep`/`tail`/`head`** to find the failed step — Read the artifacts.
 3. Read `.ripplo/debug/<runId>/` in this order:
    1. `manifest.md` — index of every artifact, sizes, slicing recipes.
    2. `summary.txt` — locate the failed step index.
