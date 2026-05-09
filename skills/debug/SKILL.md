@@ -41,7 +41,7 @@ Anti-patterns:
 - **Wrong locator** — element not found. Check accessibility tree, re-read component source.
 - **Race condition** — action fires before page settles. Add an assertion before the action.
 - **Precondition issue** — state not set up. Check `storage.json`.
-- **Parallel collision** — unique-constraint or 401 mid-run. Precondition isn't isolating per-run, or teardown deletes globally. Fix the precondition.
+- **Parallel collision** — unique-constraint or 401 mid-run, or rows vanishing while a test is still running. Precondition isn't isolating per-run, teardown deletes globally, or a `setup()` is using `update`/`delete` on rows produced elsewhere. Preconditions must be create-only — fix the precondition, not the symptom (see `/ripplo:create` → "Parallel safety").
 - **Observer failure** — `assert.backend(...)` step failed. The detail line tells you what to check:
   - `failed (invariant): <reason> (after N poll(s))` → observer returned `ctx.fail(...)`. If N is 1, first check whether the observer should have used `ctx.retry(reason)` instead — anything "not yet committed" / "not found yet" / "status not yet X" is a retry, not a fail.
   - `budget "fast|slow|async" exhausted after N poll(s); last: <reason>` → observer stayed in retry the whole budget. The async work never finished, OR the budget tier is too short. Check whether the write actually happened (logs, DB), then decide: fix the app, or bump `.budget(...)` to a longer tier.

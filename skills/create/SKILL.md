@@ -184,12 +184,24 @@ export const dataInvoice = precondition("data:invoice")
   .contract<{ invoiceId: string; amountCents: number; isPaid: boolean }>();
 ```
 
-Implement in `<app>/src/test/engine.ts` — `createEngine(ripplo, {...})` is exhaustiveness-checked. Observer impls receive params at the declared primitive type with no coercion:
+Implement in `<app>/src/test/engine.ts` — `createEngine(ripplo, {...})` is exhaustiveness-checked. **Precondition `setup` and `teardown` are batched**: the runtime collects every concurrent run that needs the precondition within a short window and calls the impl once with `items: ReadonlyArray<{ ctx, deps }>`. Return a result array with the same length and order as the input. Issue one bulk write for the whole batch (e.g. `createMany` / `deleteMany`) so DB round-trips scale with wall-clock time, not run count. Observer impls remain per-call and receive params at the declared primitive type with no coercion:
 
 ```ts
 export const engine = createEngine(ripplo, {
   preconditions: {
-    dataThing: { setup: async (ctx, { auth }) => ..., teardown: async () => ... },
+    dataThing: {
+      setup: async (items) => {
+        const seeds = items.map(({ ctx, deps }) => ({
+          thingId: ctx.uniqueId("thing"),
+          userId: deps.auth.userId,
+        }));
+        await db.things.bulkInsert(seeds); // one round-trip for the whole batch
+        return seeds.map(({ thingId }) => ({ thingId }));
+      },
+      teardown: async (items) => {
+        await db.things.bulkDeleteByIds(items.map((it) => it.ctx.data.thingId));
+      },
+    },
   },
   observers: {
     thingIs: async (ctx, { thingId, expectedValue }) => ...,
@@ -210,10 +222,11 @@ Tests run in parallel. Every `setup()` must produce isolated, non-conflicting da
 - **Unique identifiers** via `ctx`: `ctx.uniqueId(prefix)`, `ctx.uniqueEmail()`, `ctx.runId`. `ctx.fixed(value)` only for shared constants (e.g. test password) — never names/emails/ids. Accepts any primitive (`string | number | boolean`).
 - ctx helpers return plain primitives — use them directly in templates and observer params. Hardcoded literals in `setup()` returns are rejected at compile time.
 - **Return dynamic IDs** — `setup()` return flows into `requires()` destructuring; tests reference by id, not hardcoded slug.
+- **Create-only setups.** `setup()` may insert new rows but must not `update` or `delete` existing ones. Mutating shared state — even with a `WHERE` clause that looks scoped — can match rows from another in-flight run, and creates ordering coupling between preconditions. If a test needs a non-default state, the precondition that creates the row should accept that state as input; don't seed a default and mutate it from a downstream precondition. Exception: `upsert` on a per-run 1:1 settings record (e.g. `(userId, resourceId)` view).
 - **Scoped teardown.** Delete only entities created by _this_ setup invocation, by id. Never `deleteMany` by prefix or `TRUNCATE`.
 - **Independent sessions.** Each setup creates its own auth session.
 
-Symptoms of leakage: unique-constraint errors, 401/403 mid-test, vanishing session cookies. Fix the precondition, not the test.
+Symptoms of leakage: unique-constraint errors, 401/403 mid-test, vanishing session cookies, rows disappearing while a test is still running. Fix the precondition, not the test.
 
 ## Coverage (load-bearing)
 

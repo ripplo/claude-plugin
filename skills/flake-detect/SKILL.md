@@ -27,6 +27,7 @@ npx ripplo flake-detect <id> --runs=10
 - **>0%** — reproduced. Common causes:
   - **Race condition** — actions fire before transitions complete; add an assertion between actions.
   - **Hardcoded precondition data** — runs collide on unique constraints. See `/ripplo:create` → "Parallel safety" (`ctx.uniqueId`, `ctx.uniqueEmail`).
+  - **Destructive precondition** — a `setup()` calls `update` or `delete`, which can match rows from another in-flight run. Preconditions must be create-only; refactor the row to be created with the desired state instead of mutated downstream.
   - **Timing-dependent locators** — element appears/disappears based on load time; use a stable locator.
   - **Non-exact text** — exact `equals` only, no `contains`/regex.
 
