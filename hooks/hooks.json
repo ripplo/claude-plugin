@@ -25,6 +25,10 @@
           {
             "type": "command",
             "command": "npx ripplo hook scope-reminder"
+          },
+          {
+            "type": "command",
+            "command": "npx ripplo hook track-skill-prompt"
           }
         ]
       }
