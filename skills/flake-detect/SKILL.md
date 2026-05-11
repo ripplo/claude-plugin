@@ -13,9 +13,9 @@ Triggers:
 - User reports intermittent CI failures on a specific test.
 - You're debugging a precondition you suspect isn't isolating per-run.
 
-## Prerequisite — dev session must be live
+## Prerequisite
 
-This skill needs two background processes running: the app's dev server, and `npx ripplo watch`. Run `npx ripplo doctor` first — if either is missing, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`) and start the app dev server the same way if it isn't up. Without watch, `ripplo run` refuses to dispatch.
+Needs the app dev server + `npx ripplo watch`. Run `npx ripplo doctor`; if missing, `/ripplo:start`.
 
 ```sh
 npx ripplo flake-detect <id> --runs=10

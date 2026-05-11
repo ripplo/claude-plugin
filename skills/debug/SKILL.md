@@ -5,41 +5,29 @@ description: "Debug a failing Ripplo test using browser logs, DOM snapshots, and
 
 # Debug Ripplo Test
 
-## Prerequisite — dev session must be live
+## Prerequisite
 
-Re-running a failed test (the verify step at the end of the loop) needs two background processes: the app's dev server, and `npx ripplo watch`. Run `npx ripplo doctor` first — if either is missing, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`) and start the app dev server the same way if it isn't up. Without watch, `ripplo run` refuses to dispatch. (Reading artifacts under `.ripplo/debug/` does not require either.)
+Re-running needs the app dev server + `npx ripplo watch`. Run `npx ripplo doctor`; if missing, `/ripplo:start`. Reading artifacts doesn't need either.
 
 ## Read artifacts first, re-run last
 
-A run takes ~30–60s. Artifacts in `.ripplo/debug/<runId>/` already contain everything the run produced — DOM, a11y tree, console, network, screenshots. **Re-running tells you nothing new unless you've changed something.**
+A run takes ~30–60s. Artifacts in `.ripplo/debug/<runId>/` already contain everything the run produced. **Re-running tells you nothing new unless you've changed something.**
 
-Loop: read artifacts → form a specific hypothesis (cite a line) → make ONE targeted change → re-run once to verify.
+Loop: read artifacts → form a specific hypothesis (cite a line) → make ONE targeted change → re-run once to verify. Suspect a flake instead → `/ripplo:flake-detect`, never manually re-run.
 
-Anti-patterns:
+## One failing test at a time
 
-- Re-running because "maybe it'll pass this time." Suspect a flake → use `/ripplo:flake-detect`, never manually re-run.
-- Re-running before reading any artifact.
-- Reading only `summary.txt` and re-running. Always open the failed step's `dom.html` + `accessibility-tree.json` first.
+Multiple failures: skim every `summary.txt`, pick the most upstream one (precondition/engine/shared-infra over test-specific selector/copy), then own that one test through fix and verify before touching the next. Shared-file edits are fine if that's the real root cause.
+
+Verify with `npx ripplo run <id>` until green, then bare `npx ripplo run` once before moving on so cross-test breakage surfaces immediately. New failure queues as the next iteration. Do one more bare `ripplo run` after the last fix to close out.
+
+Don't batch edits across tests and re-run the suite — when it lights up red you can't tell which edit broke what.
 
 ## Procedure
 
 1. Find the test in `.ripplo/tests/` — id is the string passed to `test("<id>")`, not the filename.
-2. **Use the existing run's artifacts.** Only `npx ripplo run <id>` if there's no recent run, or you've made a fix and need to verify. Verify with the failing test alone, or bare `ripplo run` if the test is already in scope. **Never pipe through `grep`/`tail`/`head`** to find the failed step — Read the artifacts.
-3. Read `.ripplo/debug/<runId>/` in this order:
-   1. `manifest.md` — index of every artifact, sizes, slicing recipes.
-   2. `summary.txt` — locate the failed step index.
-   3. `error.txt` — top-level errors (server unreachable, config).
-   4. `steps/<failedIndex>/accessibility-tree.json` — correct ARIA roles/locators. Compact NDJSON, one node per line; grep with patterns like `'"role":"button"'`. Reach for `accessibility-tree.full.json` only when the compact view hides what you need.
-   5. `steps/<failedIndex>/dom.html` — actual DOM at failure. Full-fidelity but often large; slice with `sed -n 'A,Bp'` / `grep -n PATTERN | head` rather than reading the whole file.
-   6. `steps/<failedIndex>/storage.json` — auth/session.
-   7. Diff against `steps/<failedIndex - 1>/` to see what changed.
-   8. Run-level logs (under `.ripplo/debug/<runId>/`, not per-step):
-      - `console.log` — every page console message (type, text, source url, timestamp).
-      - `page-errors.log` — uncaught page errors with stack traces.
-      - `network.jsonl` — one JSON object per response or failed request: method, url, status, resourceType, full request/response headers, and full request/response bodies (no truncation). Grep for failing status codes (`grep '"status":5'`) or specific endpoints.
-      - `events.jsonl` — page lifecycle events (`crash`, `dialog`, `navigation`, `popup`, `download`, `worker`). A `crash` here explains a "timed out" run; a `dialog` explains a swallowed click.
-      - `perf.json` — Performance API snapshot at run end: navigation timing (DNS/TTFB/load), paint (FP/FCP), every resource entry, and `performance.memory` when exposed.
-   9. `steps/<failedIndex>/screenshot.png` — last resort; confirms, doesn't diagnose.
+2. **Use the existing run's artifacts.** Only `npx ripplo run <id>` if there's no recent run, or you've made a fix and need to verify. **Never pipe through `grep`/`tail`/`head`** to find the failed step — Read the artifacts.
+3. Open `manifest.md` — it indexes every artifact with sizes and slicing recipes. Typical read order: `summary.txt` (locate failed step index) → `error.txt` → `steps/<failedIndex>/accessibility-tree.json` → `dom.html` → `storage.json` → run-level logs (`console.log`, `page-errors.log`, `network.jsonl`, `events.jsonl`) → `screenshot.png` last. Diff against `steps/<failedIndex - 1>/` when behavior changed mid-run.
 
 ## Common root causes
 
@@ -65,8 +53,6 @@ These surface at `stop-enforce`, not at runtime. Fix `.coverage(...)`, don't re-
 
 ## Discipline
 
-- **Text first, screenshots second.** Grep `console.log`/`network.jsonl` before opening any image.
-- **Evidence before changes.** Cite a specific artifact line. "I think the locator is wrong" isn't evidence; "accessibility-tree.json line 42 shows role=link not button" is.
-- **Don't weaken assertions to pass.** App bugs go to the user with failing step + expected/actual + relevant log/source excerpt.
+Don't weaken assertions to pass. App bugs go to the user with failing step + expected/actual + relevant log/source excerpt.
 
 For intermittent behavior, `/ripplo:flake-detect` reproduces flakes under parallel load.

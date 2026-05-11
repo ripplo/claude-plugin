@@ -7,23 +7,20 @@ description: "Guided codebase crawl to plan and stub Ripplo tests. Use when sett
 
 Map the app's user-facing surface area; stub a `.notImplemented()` test for every flow that should ship with verification. Implementation happens in `/ripplo:create`.
 
-## Prerequisite — dev session must be live
+## Prerequisite
 
-This skill needs two background processes running: the app's dev server, and `npx ripplo watch`. Run `npx ripplo doctor` first — if either is missing, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`) and start the app dev server the same way if it isn't up. Without watch, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
+Needs the app dev server + `npx ripplo watch`. Run `npx ripplo doctor`; if missing, `/ripplo:start`. Without watch, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
 
 ## Setup
 
-1. Read `packages/testing/README.md` (DSL, preconditions, determinism rules).
-2. Verify project state: `.ripplo/index.ts` and `.ripplo/project.json` exist; run `npx ripplo doctor`.
+Read `packages/testing/README.md` (DSL, preconditions, determinism rules).
 
 ## Phase 1: Discover
-
-Use sub-agents for deep file reads — keep raw contents out of main context.
 
 **Map the app:**
 
 - Routes, route guards, layouts, redirects, dynamic segments and the entities they reference.
-- Auth: provider, session storage, role/permission model, programmatic session creation paths (not UI login).
+- Auth: provider, session storage, role/permission model, programmatic session creation paths (not UI login). **If the app has auth, stub `authLoggedIn` first** — every data precondition will compose it via `.requires({ auth: authLoggedIn })`, so login lives in one place.
 - Data model: entities, relationships, what's required to reach what, factory/seed utilities.
 
 **Inventory every state-mutating interaction.** Miss nothing — dialogs, forms (incl. filters/search), inline editing, action menus, mutating toggles, drag-and-drop, bulk actions, confirmations, wizards, tab panels with distinct data, file upload/import/export, settings saves, toast actions, keyboard shortcuts, real-time-driven UI changes.
@@ -65,9 +62,9 @@ import { myFlow } from "./my-flow";
 export const tests = [myFlow] as const;
 ```
 
-Stubs auto-scope on save (post-edit hook, **after lint passes** — fix lint errors first). For tests not edited this session, bulk: `npx ripplo scope add <id1> <id2> <id3>` (variadic — one call, never a shell loop).
+Stubs auto-scope on save (post-edit hook, **after lint passes**). For tests not edited this session, bulk: `npx ripplo scope add <id1> <id2> <id3>` (variadic — one call, never a shell loop).
 
-**Plan-mode requirement:** before `ExitPlanMode`, every flow the plan touches must have a stub, and the plan file must include a "Tests to implement" section with the stub ids — the gate hook blocks otherwise.
+In plan mode, every flow the plan touches must have a stub and the plan file must include a "Tests to implement" section with the stub ids — the gate hook blocks `ExitPlanMode` otherwise.
 
 Present the stub list to the user for confirmation before implementing.
 

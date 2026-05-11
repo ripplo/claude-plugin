@@ -9,9 +9,9 @@ Scope is the contract that defines success criteria for this session: the set of
 
 **Scope vs coverage.** Scope is _intent_ — "these flows matter this session." Coverage (`.coverage(...)` per test, enforced by `stop-enforce`) is _proof_ — "every new interaction in the diff is claimed by some test." Scope a flow → stub a test → implement with `.coverage(...ids)`.
 
-## Prerequisite — dev session must be live
+## Prerequisite
 
-Scope lives in the dev-session DB, which only exists while `npx ripplo watch` is running. The app's dev server also needs to be up. Run `npx ripplo doctor` first — if either is missing, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`) and start the app dev server the same way if it isn't up. Without watch, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
+Scope lives in the dev-session DB — needs `npx ripplo watch` + the app's dev server. Run `npx ripplo doctor`; if missing, `/ripplo:start`.
 
 ## Your responsibility
 
@@ -43,9 +43,8 @@ npx ripplo scope remove <scope-item-id> [<id>...]  # remove (variadic)
 - **Edited tests auto-scope after lint passes.** The `post-edit-lint` hook scopes any edit to `.ripplo/tests/<id>.ts` once the file is lint-clean (lint errors block scoping until fixed). Don't run `scope add` for tests you're actively editing — only for previously-existing tests you didn't edit, or after `scope remove` you reversed.
 - **Scope additions reference existing tests only.** `scope add <test-id>` requires a test (stub or implemented) in `.ripplo/tests/`. Free-text intents come from the user — stub a matching test and `scope link` it.
 - **Stop blocks on incomplete scope** (intent items with no test, stubs not yet implemented, or workflows whose tests fail). Pausing hooks from the web UI is the only escape hatch.
-- **`scope remove` is not a shortcut to clear the gate.** Don't present "implement vs. trim" as a neutral A/B — it frames discarding validation as legitimate. Valid removal: wrong flow stubbed, duplicate of another test, user explicitly said "not this session," underlying feature was cut. **Size, effort, or session length are never valid reasons.**
-- **The same rule applies to every gate-bypass path** — pausing hooks via the web UI, `scope remove`, `uiOnly: true`, "implement now vs. defer?". They're all the same anti-pattern: framing skipped validation as a legitimate option. See `/ripplo:create` → "Stop-enforce stubs are not a question" for the canonical wording. The fix isn't done until the test is.
-- **If the stub list feels too large, parallelize — don't trim.** See `/ripplo:create` → "Parallelizing multi-stub sessions." Only escalate to splitting across PRs after parallelizing first.
+- **`scope remove` is not a shortcut to clear the gate.** Valid removal: wrong flow stubbed, duplicate of another test, user explicitly said "not this session," underlying feature was cut. Size, effort, and session length are never valid reasons. Same rule covers every gate-bypass path (`uiOnly: true`, pausing hooks via the web UI, "implement now vs. defer?") — don't frame skipped validation as a legitimate option.
+- **If the stub list feels too large, parallelize — don't trim.** See `/ripplo:create` → "Parallelizing multi-stub sessions."
 - **Scope persists across CLI restarts** — quitting marks the session inactive; items return on next start.
 - **Current scope auto-injects into every prompt** via `scope-reminder` — don't run `scope status` reflexively.
 

@@ -7,44 +7,9 @@ description: "Create a new Ripplo test spec. Use when adding a new e2e test for 
 
 If the flow doesn't work yet, fix the app first or in lockstep — never weaken the test to paper over an app bug. Observer wiring on mutation flows is in-scope work, not follow-up. Same for upload fixtures: `upload(loc, fixture("name"))` requires the file to exist at `.ripplo/fixtures/<name>` (committed bytes; LFS allowed); adding it is part of writing the test, not a follow-up.
 
-## Prerequisite — dev session must be live
+## Prerequisite
 
-This skill needs two background processes running: the app's dev server, and `npx ripplo watch`. Run `npx ripplo doctor` first — if either is missing, run `/ripplo:start` (or spawn `npx ripplo watch` directly via `Bash` with `run_in_background`) and start the app dev server the same way if it isn't up. Without watch, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
-
-## Canonical builder chains
-
-```ts
-// Precondition — single chain shape (stub vs implemented is decided by engine.ts wiring, not the DSL)
-precondition("ns:name")
-  .description("…")
-  .requires({ dep }) // optional
-  .contract<{ fooId: string }>();
-```
-
-```ts
-// Observer — single chain shape (stub vs implemented is decided by engine.ts wiring, not the DSL)
-observer("ns:name")
-  .description("…")
-  .budget("fast") // "fast" | "slow" | "async"
-  .input<{ … }>()
-  .contract();
-```
-
-```ts
-// Test — implemented
-test("id")
-  .name("…")
-  .requires({ dep })
-  .expectedOutcome("…")
-  .startsAt(({ dep }) => "/path")
-  .steps(({ dep }) => [
-    /* … */
-  ])
-  .coverage("file#Component.kind[label]");
-
-// Test — stub (terminates early; no startsAt/steps/coverage)
-test("id").name("…").requires({ dep }).expectedOutcome("…").notImplemented();
-```
+Needs the app dev server + `npx ripplo watch`. Run `npx ripplo doctor`; if missing, `/ripplo:start`. Without watch, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
 
 ## Procedure
 
@@ -90,21 +55,27 @@ test("id").name("…").requires({ dep }).expectedOutcome("…").notImplemented()
 
 ## What makes a good test
 
-Don't just assert the URL changed or the clicked button still exists. Assert:
+A test exists to catch a specific regression. Before writing steps, name the failure mode in plain language: "user clicks Save, UI shows success, but the DB write silently dropped." That sentence dictates the assertions — if your test would pass against that bug, it's not deep enough.
 
-- New elements post-action (dialog, success message, heading).
-- Text content (`assert.text` / `assert.value` / `assert.url` / `assert.count`).
-- Mutations reflected in UI (new list item, counter delta, status change).
-- **Backend state on every mutation** (observer below).
-- Things that should be gone (`assert.not.visible` for closed dialogs, cleared spinners).
+Trace the mutation end-to-end first (component → resolver/handler → DB). Steps and observers fall out of the trace; without it, tests assert the click happened, not that the intent succeeded.
 
-The `tautological-post-click-assert` lint rule catches "clicked X, assert X still visible." Re-read each test against its `expectedOutcome` before declaring done.
+Cover each mutation in three phases:
+
+- **Before:** precondition seeds a _known_ value (not just existence), so an after-assertion can't pass by coincidence.
+- **Action:** the user-facing step.
+- **After:** both UI evidence (new element, text, counter delta) _and_ DB evidence via `assert.backend`. A toast can lie; the row can't.
+
+Assert the negatives. Errors absent, spinners cleared, dialogs closed, duplicate rows not created, prior values gone. Regression-revealing assertions are usually negative — positive ones often pass by accident.
+
+Branch coverage: if a route renders differently for admin vs member, empty vs populated, first run vs Nth — each branch needs its own test or variant. A single happy-path test ships green while the other branch silently regresses.
+
+The `tautological-post-click-assert` lint rule catches "clicked X, assert X still visible." Re-read each test against the failure mode you named — would it actually fail if that regression shipped?
 
 ## Observers & `uiOnly`
 
 **Every mutation step requires `assert.backend(observerHandle, params)`.** A server can accept a click and still fail the write; UI-only checks ship that bug as green.
 
-**Declaring:** `observer(name).input<T>().budget("fast" | "slow" | "async").contract()` in `.ripplo/observers/index.ts`, add to the `observers` registry, implement server-side in `engine.ts`.
+Declare in `.ripplo/observers/index.ts` and implement in `engine.ts` — see "Adding a precondition or observer" for the full chain.
 
 - **Budgets:** `"fast"` (5s, default) sync DB reads; `"slow"` (30s) queue drains; `"async"` (120s) webhooks/workers/LLM. Pick the smallest that fits.
 - **`ctx.retry(reason)` is the default.** Anything that may resolve on a later poll — uncommitted row, status transition, draining queue, in-flight side effect.
@@ -116,36 +87,21 @@ The `tautological-post-click-assert` lint rule catches "clicked X, assert X stil
 - `mutation-without-observer-coverage` flags mutation-looking steps lacking a following `assert.backend(...)`. Fix by writing the observer.
 - `observer-params-reference-variables` flags observers whose params are all static while the test has precondition variables — pass the real data (e.g. `expectedName: project.name`).
 
-### Stop-enforce stubs are not a question
+### Stop-enforce stubs and `uiOnly`
 
-When `stop-enforce` blocks on an unimplemented stub, complete it. Don't ask the user "implement now or defer?" — that framing presents skipping validation as a legitimate option. It isn't.
+Stop-enforce stubs are in-scope work. Don't ask the user to defer; don't propose pausing hooks. New scaffolding the test needs (precondition, observer, engine impl) is part of the fix, not a follow-up.
 
-- **Size is never a valid reason to ask.** Same rule as `scope remove`.
-- **Pausing hooks via the web UI is the user's escape hatch, not yours.** Don't propose it as an alternative path; don't surface it as option B in an A/B.
-- **The fix isn't done until the test is.** A landed app change with a still-stubbed test is not "the fix shipped + a follow-up" — it's an incomplete fix that the gate is correctly blocking.
-- **If the test needs new scaffolding** (precondition, observer, engine impl), that scaffolding is in-scope. Same as observer wiring — see "uiOnly is not a stub" below.
-
-### `uiOnly: true` is not a stub
-
-Valid only for steps with **zero** backend effect: cancel a dialog, toggle a display-only control, switch tabs, open a modal that renders purely from client state.
-
-**Invalid regardless of `// TODO` or lint status:** any step that triggers a mutating network request, optimistic UI updates, enqueues, uploads, webhook fires, external API calls. Using `uiOnly: true` + `// TODO: add observer` to clear lint and call a stub "implemented" is forbidden — same anti-pattern as `scope remove`. Parallelize observer wiring across stubs (below); don't take the shortcut.
+`uiOnly: true` is valid only for steps with **zero** backend effect (cancel a dialog, switch tabs, open a client-state modal). Never use it to silence observer lint on a mutation step — that's the same anti-pattern as `scope remove`.
 
 ## Parallelizing multi-stub sessions
 
-When implementing more than ~3 stubs, fan out subagents — don't author serially. Stubs are independent files with no reason to serialize.
-
-- One subagent per stub (or per 2–3 sharing a component).
-- Batch ~5 parallel agents per message.
-- Each prompt: stub path, component source paths, relevant precondition/observer handles, coverage ID prefix to search in `.ripplo/coverage.d.ts`. Instruct: return the test body only, don't run lint/run.
-- Review each returned test — subagents hallucinate locators and coverage IDs.
-- Keep on the main agent: `npx ripplo lint`, `npx ripplo run`, `/ripplo:debug` on failures, and new precondition/observer declarations + `engine.ts` wiring (exhaustiveness must stay coherent).
-
-"Too many stubs" is never a justification for `scope remove`.
+When implementing more than ~3 stubs, fan out subagents (one per stub or per 2–3 sharing a component, ~5 per batch). **Every Agent prompt must instruct the subagent to first invoke the Skill tool with `ripplo:create`** — subagents don't inherit skill context and will hallucinate DSL without it. Keep lint/run/debug and precondition/observer/engine wiring on the main agent. "Too many stubs" is never a justification for `scope remove`.
 
 ## Adding a precondition or observer
 
-Declared in `.ripplo/`; **must be in the registry** that `.ripplo/index.ts` passes to `createRipplo`. Chain order is fixed — see "Canonical builder chains" above.
+Declared in `.ripplo/`; **must be in the registry** that `.ripplo/index.ts` passes to `createRipplo`.
+
+**Compose, don't duplicate.** Before writing a `setup()`, name what it shares with other preconditions. Shared steps belong in their own precondition that downstream ones declare via `.requires(...)` — not inlined into each setup. The canonical case is auth: an authenticated app gets one `authLoggedIn` precondition, and every data precondition does `.requires({ auth: authLoggedIn })`. If your `setup()` description starts with "Authenticated …", that's the smell — extract the auth step.
 
 ```ts
 // .ripplo/preconditions/index.ts
@@ -166,22 +122,7 @@ export const thingIs = observer("thing:is")
   .input<{ thingId: string; expectedValue: string }>()
   .contract();
 
-export const orgOverageCapIs = observer("org:overage-cap-is")
-  .input<{ orgId: string; expectedCapCents: number }>()
-  .contract();
-
-export const orgHasLogo = observer("org:has-logo")
-  .input<{ orgId: string; expectLogo: boolean }>()
-  .contract();
-
-export const observers = { thingIs, orgOverageCapIs, orgHasLogo };
-```
-
-```ts
-// .ripplo/preconditions/index.ts
-export const dataInvoice = precondition("data:invoice")
-  .requires({ auth: authLoggedIn })
-  .contract<{ invoiceId: string; amountCents: number; isPaid: boolean }>();
+export const observers = { thingIs };
 ```
 
 Implement in `<app>/src/test/engine.ts` — `createEngine(ripplo, {...})` is exhaustiveness-checked. **Precondition `setup` and `teardown` are batched**: the runtime collects every concurrent run that needs the precondition within a short window and calls the impl once with `items: ReadonlyArray<{ ctx, deps }>`. Return a result array with the same length and order as the input. Issue one bulk write for the whole batch (e.g. `createMany` / `deleteMany`) so DB round-trips scale with wall-clock time, not run count. Observer impls remain per-call and receive params at the declared primitive type with no coercion:
@@ -205,15 +146,25 @@ export const engine = createEngine(ripplo, {
   },
   observers: {
     thingIs: async (ctx, { thingId, expectedValue }) => ...,
-    orgOverageCapIs: async (ctx, { orgId, expectedCapCents }) =>
-      org.overageCapCents === expectedCapCents ? ctx.pass() : ctx.retry("..."),
-    orgHasLogo: async (ctx, { orgId, expectLogo }) =>
-      hasLogo === expectLogo ? ctx.pass() : ctx.retry("..."),
   },
 });
 ```
 
 Never declare `precondition(...)` or `observer(...)` in app code.
+
+**Organize by domain from the start, consistently across all four locations.** Pick one set of domain names (e.g. `auth`, `billing`, `workflows`) and use it for `engine/<domain>.ts` (impls), `.ripplo/tests/<domain>/` (test folders), `.ripplo/preconditions/<domain>.ts` + `.ripplo/observers/<domain>.ts` (declarations, re-exported through their `index.ts`). One mental map, four mirrored layouts. Don't let declarations stay in a single index file while impls and tests split — they all grow together.
+
+Engine split shape — each module exports a plain object of impls keyed by handle, and `engine.ts` spreads them into one `createEngine` call:
+
+```ts
+import { authImpls } from "./engine/auth";
+import { billingImpls } from "./engine/billing";
+
+export const engine = createEngine(ripplo, {
+  preconditions: { ...authImpls.preconditions, ...billingImpls.preconditions },
+  observers: { ...authImpls.observers, ...billingImpls.observers },
+});
+```
 
 ### Parallel safety
 
