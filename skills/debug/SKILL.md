@@ -33,7 +33,12 @@ Anti-patterns:
    5. `steps/<failedIndex>/dom.html` — actual DOM at failure. Full-fidelity but often large; slice with `sed -n 'A,Bp'` / `grep -n PATTERN | head` rather than reading the whole file.
    6. `steps/<failedIndex>/storage.json` — auth/session.
    7. Diff against `steps/<failedIndex - 1>/` to see what changed.
-   8. `console.log`, `network.jsonl`, `page-errors.log`.
+   8. Run-level logs (under `.ripplo/debug/<runId>/`, not per-step):
+      - `console.log` — every page console message (type, text, source url, timestamp).
+      - `page-errors.log` — uncaught page errors with stack traces.
+      - `network.jsonl` — one JSON object per response or failed request: method, url, status, resourceType, full request/response headers, and full request/response bodies (no truncation). Grep for failing status codes (`grep '"status":5'`) or specific endpoints.
+      - `events.jsonl` — page lifecycle events (`crash`, `dialog`, `navigation`, `popup`, `download`, `worker`). A `crash` here explains a "timed out" run; a `dialog` explains a swallowed click.
+      - `perf.json` — Performance API snapshot at run end: navigation timing (DNS/TTFB/load), paint (FP/FCP), every resource entry, and `performance.memory` when exposed.
    9. `steps/<failedIndex>/screenshot.png` — last resort; confirms, doesn't diagnose.
 
 ## Common root causes
