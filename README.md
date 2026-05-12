@@ -1,49 +1,35 @@
 # Ripplo — Claude Code Plugin
 
-**Ripplo closes the loop on full-stack app development.** When an agent (or human) ships a user-facing change, Ripplo ensures there is a deterministic, backend-aware test proving it works end-to-end — UI, API, database, async jobs. Tests are how you and the user agree on what success looks like: preconditions define the starting state, observers assert backend mutations, and coverage IDs ensure no interaction on the app's surface area ships unclaimed. When you stop, you have both the feature and the proof it works.
+Validation-loop hooks that keep your agent's tests in step with the code it ships. Part of [Ripplo](https://ripplo.ai) — typed end-to-end tests with real backend state.
 
 ## Install
 
-In Claude Code, run:
+The plugin shells out to the [`ripplo` CLI](https://www.npmjs.com/package/ripplo), so authenticate first:
+
+```sh
+npx ripplo auth login
+```
+
+Then in Claude Code:
 
 ```
 /plugin marketplace add ripplo/claude-plugin
 /plugin install ripplo
+/ripplo:setup
 ```
 
-## How It Works
+`/ripplo:setup` runs `ripplo init` (scaffolds `.ripplo/`, writes `RIPPLO_*` env vars, installs `@ripplo/testing`), starts `ripplo watch` as a background process, and mounts the engine adapter into your app server.
 
-The plugin hooks into your agent's workflow to create a tight validation loop around `.notImplemented()` stubs — the test lifecycle goes **stub in plan → implement with code → validate at stop**:
+## What the hooks do
 
-- **UserPromptSubmit** — reminds the agent of `.notImplemented()` stubs during plan mode, and nudges mid-session when user-facing code has drifted from `.ripplo/tests` updates
-- **PreToolUse: ExitPlanMode** — blocks plan exit if the plan touches user-facing code but cites no `.ripplo/tests` stubs
-- **PostToolUse (Edit/Write)** — lints the DSL on `.ripplo/**` edits and flags remaining stubs on user-facing edits
-- **Stop** — lints, surfaces remaining stubs, runs all scoped + changed tests, and **blocks on coverage drift**: user-facing changes with no corresponding `.ripplo/tests` update
+Four hooks wire into the agent's workflow so tests are load-bearing, not advisory.
 
-All hook logic lives in the `ripplo` CLI (`ripplo hook <name>`) — no shell scripts, no `jq`, Windows-safe.
+- **UserPromptSubmit** reminds the agent of `.notImplemented()` stubs during plan mode and nudges when user-facing code has drifted from `.ripplo/tests`.
+- **PreToolUse / ExitPlanMode** blocks plan exit if the plan touches user-facing code but cites no `.ripplo/tests` stubs.
+- **PostToolUse (Edit/Write)** lints the DSL on `.ripplo/**` edits and flags remaining stubs on user-facing edits.
+- **Stop** lints, surfaces remaining stubs, runs scoped and changed tests, and blocks on coverage drift — user-facing changes without a matching `.ripplo/tests` update.
 
-### Watch paths
-
-The plugin treats common web source globs as user-facing (`src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, `components/**`) and ignores generated/vendor output. Defaults are not currently configurable.
-
-### Testing Scope
-
-Scope is the agent's working memory for what user flows the current session should cover. It lives in the dev-session DB (no local file) and is mutated only via `npx ripplo scope add|link|remove`. Agent scope items must reference an existing test (stub or implemented); free-text intents come from the user via the dashboard, and the agent's job is to stub a matching test and `scope link` it.
-
-The user sees live scope in Developer Mode → Testing Scope and can pause hooks entirely from the UI. Agents should consult the `/ripplo:scope` skill when planning work or when a drift nudge fires.
-
-### Coverage drift escape hatch
-
-If a change is genuinely test-exempt (pure refactor, infra, internal tooling), write `.ripplo/.local/drift-exempt`:
-
-```
-<sha from `ripplo hook coverage-nudge` error message>
-<one-line reason>
-```
-
-The exemption auto-invalidates if the diff changes.
-
-Your agent writes deterministic, parallelizable tests that verify your app's full stack — UI through backend state — works end-to-end. No flaky tests, no shared state, no ordering dependencies.
+The plugin treats `src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, and `components/**` as user-facing, and ignores generated and vendor output.
 
 ## Skills
 
@@ -57,12 +43,21 @@ Your agent writes deterministic, parallelizable tests that verify your app's ful
 | `/ripplo:debug`        | Debug failures using DOM snapshots and network traces                |
 | `/ripplo:flake-detect` | Reproduce a suspected flaky test under parallel load (use sparingly) |
 
-## Prerequisites
+## Testing Scope
 
-Install the [Ripplo CLI](https://www.npmjs.com/package/ripplo), then authenticate:
+Scope is the agent's working memory for what user flows the current session is on the hook for. It lives in the dev-session DB (no local file) and is mutated only via `npx ripplo scope add|link|remove`. Agent scope items must reference an existing test (stub or implemented); free-text intents come from the user via the dashboard, and the agent's job is to stub a matching test and `scope link` it. The user sees live scope in Developer Mode → Testing Scope and can pause hooks entirely from there.
 
-```sh
-npx ripplo auth login
+## Coverage-drift exemption
+
+For changes that are genuinely test-exempt — pure refactors, infra, internal tooling — write `.ripplo/.local/drift-exempt`:
+
+```
+<sha from `ripplo hook coverage-nudge` error message>
+<one-line reason>
 ```
 
-After that, run `/ripplo:setup` from Claude Code — it orchestrates `ripplo init` (scaffolds `.ripplo/`, writes `RIPPLO_*` env vars, installs `@ripplo/testing`), starts `ripplo watch` as a background process, and mounts the engine adapter into your app server. Scaffolding also writes an initial `.ripplo/ripplo.lock` — a committed, generated artifact the Ripplo server reads on push-webhook syncs. Keep it in sync with your `.ripplo/*.ts` via `npx ripplo compile` (or the pre-commit hook `/ripplo:setup` installs).
+The exemption auto-invalidates if the diff changes.
+
+## Lockfile
+
+`ripplo init` writes the initial `.ripplo/ripplo.lock`. Commit it; the Ripplo server reads it on every push webhook. Keep it fresh via `npx ripplo compile`, or rely on the pre-commit hook `/ripplo:setup` installs.
