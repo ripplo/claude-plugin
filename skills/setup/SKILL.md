@@ -15,15 +15,23 @@ Most users have never used Ripplo before. As you move through these steps, narra
 
 Avoid Ripplo-internal terms ("engine", "adapter", "executor", "preconditions", "observers", "lockfile") in user-facing questions until you've explained them. When you must use one, define it the first time.
 
-> **First-time onboarding only:** if `.ripplo/tests/` already has tests (i.e. this is a re-run of setup, a worktree, or a re-mount after the adapter was removed), stop after step 6 — the "first passing run" requirement in step 7 only applies the first time a project is being set up. The web onboarding UI blocks its "Continue" button on a passing run, so skipping step 7 during true first-time setup leaves the user stuck.
+> **Already-set-up repos:** if `.ripplo/tests/` already exists, the project doesn't need scaffolding — but **still run step 1** (auth) and step 3 (start `ripplo watch`) if they aren't satisfied. Skip step 2 (init) and step 7 (first passing run); the "first passing run" requirement only applies to genuine first-time setup, where the onboarding UI gates its "Continue" button on it.
+>
+> Run `npx ripplo doctor` first to see what's actually missing, and address each failing check using the matching step below. Don't bail out just because the repo looks "already set up" — a rejected token or missing watch process still needs fixing.
 
-## 1. User authenticates
+## 1. Authenticate
+
+Run `npx ripplo auth status`. If it reports a valid session, skip to step 2. If it reports **missing** or **rejected** (token expired/invalidated), drive a fresh login yourself — don't ask the user to run the CLI.
+
+Start the device-code login as a background `Bash` process:
 
 ```sh
 npx ripplo auth login
 ```
 
-Tell the user: "This opens a browser so you can log into Ripplo — only you can do this part." Then wait. Verify with `npx ripplo auth status` before continuing.
+It opens the user's browser, prints a verification URL + code to stdout, then polls until approved. Use `Monitor` to read the verification URL and code from the process stdout, then tell the user in plain language: "I've opened your browser to sign in to Ripplo — approve the code shown there (`<code>`), or visit `<url>` if it didn't open. I'll wait." Don't ask the user to run any command themselves.
+
+When the background process exits successfully, verify with `npx ripplo auth status` and continue.
 
 ## 2. Collect answers, run `ripplo init`
 
