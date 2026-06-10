@@ -1,17 +1,17 @@
 ---
 name: scope
-description: "Manage Testing Scope — your working memory for what end-to-end flows this session is responsible for. Use when starting a task that could affect any flow the running app exercises, when a coverage-drift nudge fires (e.g. user-facing code edited without a matching test update), or when the user says 'in scope' / 'out of scope'."
+description: "Manage Testing Scope — your working memory for which end-to-end flows this session is responsible for. Use when starting a task that could affect any flow the running app exercises, when a drift nudge fires (user-facing code edited without a matching test), or when the user says 'in scope' / 'out of scope'."
 ---
 
 # Testing Scope
 
-Scope is the contract that defines success criteria for this session: the set of e2e flows that must pass for the work to count as done. It lives in the dev-session DB (the user sees it in Developer Mode → Testing Scope), dies with the PR; the durable artifacts are tests in `.ripplo/tests/`.
+Scope is the contract that defines success criteria for this session: the set of e2e flows that must pass for the work to count as done. It lives in the dev-session DB (the user sees it in Developer Mode → Testing Scope), and dies with the PR; the durable artifacts are the tests in `.ripplo/tests/`.
 
-**Scope vs coverage.** Scope is _intent_ — "these flows matter this session." Coverage (`.coverage(...)` per test, enforced by `stop-enforce`) is _proof_ — "every new interaction in the diff is claimed by some test." Scope a flow → stub a test → implement with `.coverage(...ids)`.
+**Scope is intent; a passing test is proof.** Scoping a flow says "this matters this session." Discharging it means a test in `.ripplo/tests/` exercises that flow and passes. Scope a flow → write its test (`/ripplo:create`) → run it green.
 
 ## Prerequisite
 
-Scope lives in the dev-session DB — needs `npx ripplo watch` + the app's dev server. Run `npx ripplo doctor`; if missing, `/ripplo:start`.
+Scope lives in the dev-session DB — needs `npx ripplo daemon` + the app's dev server. Run `npx ripplo doctor`; if missing, `/ripplo:start`.
 
 ## Your responsibility
 
@@ -20,37 +20,34 @@ Maintaining accurate, sufficiently broad scope is **your** job — not the user'
 For any non-trivial change:
 
 - Enumerate every flow the change could affect (new flows AND existing flows whose behavior might shift).
-- Scope them all: stub missing tests, `scope add` existing ones.
-- Err on the side of breadth. The Stop gate catches new _interactions_ via `.coverage()` exhaustiveness, but it won't catch a _flow_ you didn't stub.
+- Scope them all: write missing tests, `scope add` existing ones.
+- Err on the side of breadth. Under-scoping is the default failure mode — when in doubt, scope it in.
 
-**Upper bound: ~50 tests in scope.** Below that, include as many as needed — don't trim for convenience. Hitting the bound means split the work into phases with the user, not narrow coverage.
-
-Under-scoping is the default failure mode. When in doubt, scope it in.
+**Upper bound: ~50 tests in scope.** Below that, include as many as needed. Hitting the bound means split the work into phases with the user, not narrow coverage.
 
 ## Commands
 
 ```sh
-npx ripplo scope status                            # list current scope
-npx ripplo scope add <test-id> [<test-id>...]      # bind existing tests (variadic — one call, no shell loops)
-npx ripplo scope link <scope-item-id> <test-id>    # link a user free-text item to a test you stubbed
-npx ripplo scope remove <scope-item-id> [<id>...]  # remove (variadic)
+npx ripplo scope status                              # list current scope
+npx ripplo scope add "<intent>" ["<intent>"...]      # bind existing tests (variadic — one call, no shell loops)
+npx ripplo scope link <scope-item-id> "<intent>"     # link a user free-text item to a test you wrote
+npx ripplo scope remove <scope-item-id> [<id>...]    # remove (variadic)
 ```
 
 **Scope drives `ripplo run`.** Bare `npx ripplo run` (no args) auto-adds dirty `.ripplo/tests/*.ts` to scope and then runs every runnable scope item — that's the default verify loop.
 
 ## Rules
 
-- **Edited tests auto-scope after lint passes.** The `post-edit-lint` hook scopes any edit to `.ripplo/tests/<id>.ts` once the file is lint-clean (lint errors block scoping until fixed). Don't run `scope add` for tests you're actively editing — only for previously-existing tests you didn't edit, or after `scope remove` you reversed.
-- **Scope additions reference existing tests only.** `scope add <test-id>` requires a test (stub or implemented) in `.ripplo/tests/`. Free-text intents come from the user — stub a matching test and `scope link` it.
-- **Stop blocks on incomplete scope** (intent items with no test, stubs not yet implemented, or workflows whose tests fail). Pausing hooks from the web UI is the only escape hatch.
-- **`scope remove` is not a shortcut to clear the gate.** Valid removal: wrong flow stubbed, duplicate of another test, user explicitly said "not this session," underlying feature was cut. Size, effort, and session length are never valid reasons. Same rule covers every gate-bypass path (`uiOnly: true`, pausing hooks via the web UI, "implement now vs. defer?") — don't frame skipped validation as a legitimate option.
-- **If the stub list feels too large, parallelize — don't trim.** See `/ripplo:create` → "Parallelizing multi-stub sessions."
+- **Edited tests auto-scope once lint-clean.** A lint-clean edit to `.ripplo/tests/<file>.ts` scopes itself. Don't run `scope add` for tests you're actively editing — only for previously-existing tests you didn't touch, or to reverse a `scope remove`.
+- **Scope additions reference existing tests only.** `scope add "<intent>"` requires a test in `.ripplo/tests/`. Free-text intents come from the user — write a matching test and `scope link` it.
+- **`scope remove` is not a shortcut to clear the gate.** Valid removal: wrong flow scoped, duplicate of another test, user explicitly said "not this session," underlying feature was cut. Size, effort, and session length are never valid reasons.
+- **If the flow list feels too large, parallelize — don't trim.** See `/ripplo:create` → "Parallelizing multi-test sessions."
 - **Scope persists across CLI restarts** — quitting marks the session inactive; items return on next start.
-- **Current scope auto-injects into every prompt** via `scope-reminder` — don't run `scope status` reflexively.
+- **Current scope auto-injects into every prompt** — don't run `scope status` reflexively.
 
 ## When to add
 
-- **Any task that could affect an e2e flow** (frontend, backend, schema, infra, config) → for each affected flow, `scope add` an existing test or stub a new `.notImplemented()` (auto-scoped on save).
-- **Mid-task discovery** — new flow surfaces, stub it. Auto-scope handles the rest.
-- **Coverage-drift nudge** — add the missing item or revert the underlying change.
-- **User-added free-text item** — stub the test and `scope link`.
+- **Any task that could affect an e2e flow** (frontend, backend, schema, infra, config) → for each affected flow, `scope add` an existing test or write a new one (auto-scoped once lint-clean).
+- **Mid-task discovery** — a new flow surfaces, write its test.
+- **Drift nudge** — user-facing code changed without a matching test; add the missing flow or revert the change.
+- **User-added free-text item** — write the test and `scope link` it.

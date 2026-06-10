@@ -6,24 +6,24 @@ description: "Run Ripplo e2e tests via `npx ripplo run`. Use when executing test
 # Run Ripplo Tests
 
 ```sh
-npx ripplo run               # auto-scopes dirty tests + runs scope (default)
-npx ripplo run <id1> <id2>   # specific tests
-npx ripplo run --all         # full suite — minutes of compute, use sparingly
+npx ripplo run                     # auto-scopes dirty tests + runs scope (default)
+npx ripplo run <test-id> ...       # specific tests, by id (the slug shown in run output/scope; quoted intent string also works)
+npx ripplo run --all               # full suite — minutes of compute, use sparingly
 ```
 
 **Scope is the unit of iteration.** Bare `ripplo run` runs every runnable test in the current dev-session scope after auto-adding any dirty `.ripplo/tests/*.ts` files. That's the right default while iterating.
 
-- Use `npx ripplo scope status` to see what's in scope; `ripplo scope add <id>` to add.
-- Pass explicit ids only to override scope for a one-off rerun.
+- Use `npx ripplo scope status` to see what's in scope; `ripplo scope add <test-id>` to add (quoted intent also works).
+- Pass explicit test ids only to override scope for a one-off rerun.
 - `--all` only when the user explicitly asks. Scope is the green-light surface — if a test isn't in scope, it isn't this session's responsibility.
 
 ## Requirements
 
-- Needs the app dev server + `npx ripplo watch`. Run `npx ripplo doctor`; if either is red, `/ripplo:start`. Run refuses to dispatch otherwise.
+- Needs the app dev server + `npx ripplo daemon`. Run `npx ripplo doctor`; if either is red, `/ripplo:start`. Run refuses to dispatch otherwise.
 - `npx ripplo run` compiles + syncs `.ripplo/` resources on demand. If the diagnostic says `"<slug>" was synced but the server didn't return it`, run `npx ripplo sync` to re-push.
 
 ## On failure
 
-The CLI prints `Debug artifacts: .ripplo/debug/<runId>/` for each failed run — Read those files. **Never pipe `npx ripplo run` through `grep`/`tail`/`head`.** Don't re-run to reshape stdout.
+The CLI prints the failed step and the oracle's findings, plus `Debug artifacts: .ripplo/debug/<runId>/`. **Read the run output and `behavior.jsonl`** — don't pipe `npx ripplo run` through `grep`/`tail`/`head`, and don't re-run to reshape stdout.
 
 Only rerun when you've made a fix. For diagnosis: `/ripplo:debug`.

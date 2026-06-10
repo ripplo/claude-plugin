@@ -1,73 +1,52 @@
 ---
 name: explore
-description: "Guided codebase crawl to plan and stub Ripplo tests. Use when setting up Ripplo for a new project, adding coverage for new features, or scoping tests to recent code changes."
+description: "Guided codebase crawl to plan Ripplo tests: map the app's user-facing surface, model the state it touches as entities + worlds, and enumerate the flows worth testing. Use when setting up Ripplo for a new project, adding tests for new features, or planning tests for recent changes."
 ---
 
 # Ripplo Explore
 
-Map the app's user-facing surface area; stub a `.notImplemented()` test for every flow that should ship with verification. Implementation happens in `/ripplo:create`.
+Map the app's user-facing surface area, model the state behind it, and produce a list of flows worth verifying. Implementation happens in `/ripplo:create`.
 
 ## Prerequisite
 
-Needs the app dev server + `npx ripplo watch`. Run `npx ripplo doctor`; if missing, `/ripplo:start`. Without watch, scope/coverage hooks don't arm and `ripplo run` refuses to dispatch.
+Needs the app dev server + `npx ripplo daemon`. Run `npx ripplo doctor`; if missing, `/ripplo:start`.
 
 ## Setup
 
-Read `packages/testing/README.md` (DSL, preconditions, determinism rules).
+Skim `.ripplo/{entities,worlds,tests}/` for existing patterns to reuse. `/ripplo:create` carries the DSL reference (entities, worlds, tests, oracle) — load it when you start authoring.
 
-## Phase 1: Discover
+## Phase 1: Discover the surface
 
 **Map the app:**
 
 - Routes, route guards, layouts, redirects, dynamic segments and the entities they reference.
-- Auth: provider, session storage, role/permission model, programmatic session creation paths (not UI login). **If the app has auth, stub `authLoggedIn` first** — every data precondition will compose it via `.requires({ auth: authLoggedIn })`, so login lives in one place.
-- Data model: entities, relationships, what's required to reach what, factory/seed utilities.
+- Auth: provider, session storage, role/permission model, and the **programmatic** session-creation path (not UI login) — the engine impl for the `user`/`session` entities will use it.
+- Data model: the DB tables/entities, their relationships (foreign keys), and what's required to reach what.
 
-**Inventory every state-mutating interaction.** Miss nothing — dialogs, forms (incl. filters/search), inline editing, action menus, mutating toggles, drag-and-drop, bulk actions, confirmations, wizards, tab panels with distinct data, file upload/import/export, settings saves, toast actions, keyboard shortcuts, real-time-driven UI changes.
+**Inventory every state-mutating interaction.** Miss nothing — dialogs, forms (incl. filters/search), inline editing, action menus, mutating toggles, drag-and-drop, bulk actions, confirmations, wizards, tabbed panels with distinct data, file upload/import/export, settings saves, toast actions, keyboard shortcuts.
 
-**Start from `.ripplo/coverage.d.ts`** — generated, enumerates every AST-visible interaction as typed branch IDs. `npx ripplo cover` prints the unacknowledged set. Augment manually for things the AST can't see (keyboard shortcuts in effects, canvas, imperative dialog triggers).
+**Inventory distinct render states per route:** empty/first-time, conditional (data/feature-flag/plan), error, loading-gated, pagination boundaries, before/after submission. Each distinct branch is a candidate test with its own world.
 
-**Inventory distinct render states per route:** empty/first-time, conditional (data/feature-flag/plan), error, loading-gated, pagination boundaries, before/after submission.
+## Phase 2: Model the state
 
-## Phase 2: Filter to real flows
+For the flows you found, work out the **entities** and **worlds** they need — this is the modeling step that makes tests writable.
 
-**Worth testing:** state mutations, multi-step UI flows, CRUD per entity, dialog flows, inline actions, bulk ops, import/export.
+- **Entities** — for each DB row a flow seeds or asserts, there should be an `entity(...)` in `.ripplo/entities/` and a `seed`/`read` impl in the app's engine funnel. List the ones that already exist and the ones you'll add.
+- **Worlds** — the starting states flows need (logged-in user, a project they own, an org with a member, an empty list). Identify reusable builders in `.ripplo/worlds/`; note new ones to add, composed from existing bases.
+- **The assertion per flow** — for each mutation flow, name the entity change that proves it (`Task.created`, `Member.deleted`, `Organization.updated`). If you can't name the row that changes, trace the mutation to its resolver/handler first.
+
+Entity + world mechanics live in `/ripplo:create` → "Adding an entity" / "Adding a world."
+
+## Phase 3: Plan the flows
+
+**Worth testing:** state mutations, multi-step UI flows, CRUD per entity, dialog flows, inline actions, bulk ops, import/export, role-specific behavior, distinct render states.
 
 **Skip:** navigation-only clicks (tests the router), read-only views with no interaction, third-party OAuth redirects.
 
-**Coverage target:** CRUD per core entity; role-specific actions if multi-role; empty/conditional states represented. `npx ripplo cover` is ground truth.
+**Target:** CRUD per core entity; role-specific actions if multi-role; empty/conditional states represented.
 
-**Name the observer for each mutation flow before stubbing** (`workflowNameIs`, `subscriptionCanceled` — even if the handle doesn't exist yet). If you can't name the backend effect, trace the mutation in the component source first. Observer mechanics: `/ripplo:create`.
-
-## Phase 3: Stub
-
-For each flow, create a `.notImplemented()` stub in `.ripplo/tests/<id>.ts` and add it to the `tests` array in `.ripplo/tests/index.ts` (the CLI only sees what's in that registry).
-
-```ts
-// .ripplo/tests/my-flow.ts
-import { test } from "@ripplo/testing";
-import { dataProject } from "../preconditions/index";
-
-export const myFlow = test("my-flow")
-  .name("My user flow")
-  .requires({ project: dataProject })
-  // TODO(observer): name the backend effect to verify (e.g. workflowNameIs).
-  .expectedOutcome("Description of expected result")
-  .notImplemented();
-```
-
-```ts
-// .ripplo/tests/index.ts
-import { myFlow } from "./my-flow";
-export const tests = [myFlow] as const;
-```
-
-Stubs auto-scope on save (post-edit hook, **after lint passes**). For tests not edited this session, bulk: `npx ripplo scope add <id1> <id2> <id3>` (variadic — one call, never a shell loop).
-
-In plan mode, every flow the plan touches must have a stub and the plan file must include a "Tests to implement" section with the stub ids — the gate hook blocks `ExitPlanMode` otherwise.
-
-Present the stub list to the user for confirmation before implementing.
+Produce a concrete list — one line per flow, with the world it starts from and the entity assertion that proves it. Present the list to the user for confirmation before implementing.
 
 ## Phase 4: Implement
 
-Hand off each confirmed flow to `/ripplo:create`. Pre-flight: read the actual component source for every form field, validation rule, error/success state, loading state, mutation, conditional render, edge case (disabled states, character limits, duplicate detection).
+Hand each confirmed flow to `/ripplo:create`. Pre-flight per flow: read the actual component source for every form field, validation rule, error/success state, loading state, mutation, conditional render, and edge case (disabled states, character limits, duplicate detection).

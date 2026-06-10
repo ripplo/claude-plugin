@@ -1,11 +1,11 @@
 ---
 name: setup
-description: "Initialize Ripplo from zero in a project: orchestrate `ripplo auth login` → `ripplo init` → start `ripplo watch` as a background process → mount the engine adapter → hand off to `/ripplo:create` to author and run the user's first test so onboarding can advance. Use when a project has no `.ripplo/` directory yet, or when `ripplo doctor` reports the engine endpoint is missing."
+description: "Initialize Ripplo from zero in a project: orchestrate `ripplo auth login` → `ripplo init` → start `ripplo daemon` as a background process → mount the engine adapter → hand off to `/ripplo:create` to author and run the user's first test so onboarding can advance. Use when a project has no `.ripplo/` directory yet, or when `ripplo doctor` reports the engine endpoint is missing."
 ---
 
 # Ripplo Setup
 
-Flow: **user logs in once → Claude runs `ripplo init` → Claude starts `ripplo watch` as a background process → Claude mounts the engine adapter → Claude authors and runs a first test**.
+Flow: **user logs in once → Claude runs `ripplo init` → Claude starts `ripplo daemon` as a background process → Claude mounts the engine adapter → Claude authors and runs a first test**.
 
 ## How to talk to the user
 
@@ -13,11 +13,11 @@ Most users have never used Ripplo before. As you move through these steps, narra
 
 > "Ripplo runs end-to-end browser tests against your app. Setup will: log you in, scaffold a `.ripplo/` folder for test definitions, add a small adapter to your backend so tests can set up data and check results, and run a first test to confirm everything works."
 
-Avoid Ripplo-internal terms ("engine", "adapter", "executor", "preconditions", "observers", "lockfile") in user-facing questions until you've explained them. When you must use one, define it the first time.
+Avoid Ripplo-internal terms ("engine", "adapter", "executor", "entity", "world", "lockfile") in user-facing questions until you've explained them. When you must use one, define it the first time.
 
-> **Already-set-up repos:** if `.ripplo/tests/` already exists, the project doesn't need scaffolding — but **still run step 1** (auth) and step 3 (start `ripplo watch`) if they aren't satisfied. Skip step 2 (init) and step 7 (first passing run); the "first passing run" requirement only applies to genuine first-time setup, where the onboarding UI gates its "Continue" button on it.
+> **Already-set-up repos:** if `.ripplo/tests/` already exists, the project doesn't need scaffolding — but **still run step 1** (auth) and step 3 (start `ripplo daemon`) if they aren't satisfied. Skip step 2 (init) and step 7 (first passing run); the "first passing run" requirement only applies to genuine first-time setup, where the onboarding UI gates its "Continue" button on it.
 >
-> Run `npx ripplo doctor` first to see what's actually missing, and address each failing check using the matching step below. Don't bail out just because the repo looks "already set up" — a rejected token or missing watch process still needs fixing.
+> Run `npx ripplo doctor` first to see what's actually missing, and address each failing check using the matching step below. Don't bail out just because the repo looks "already set up" — a rejected token or missing daemon process still needs fixing.
 
 ## 1. Authenticate
 
@@ -49,11 +49,11 @@ Output is JSON: `{ "projects": [{ "id": "...", "name": "..." }] }`. Then:
 
 Then ask the user via `AskUserQuestion` for the remaining answers (never the project id):
 
-- **Env file**: the file the user's dev server already loads at startup — Ripplo will append three new env vars to it (the URLs above plus a webhook secret). Detect this yourself before asking: Next.js loads `.env.local` automatically; Vite uses `loadEnv` (usually `.env` or `.env.local`); Express/Fastify usually `.env` via `dotenv`. Path is **relative to `.ripplo/`** — repo-root `.env.local` is `../.env.local`; monorepo `apps/server/.env` is `../apps/server/.env`. Confirm the detected path with the user in plain terms ("Your dev server reads `.env.local` — I'll add Ripplo's vars there. OK?") rather than asking them to choose a path cold.
+- **Env file**: the file the user's dev server already loads at startup — Ripplo appends its env vars there. Detect this yourself before asking: Next.js loads `.env.local` automatically; Vite uses `loadEnv` (usually `.env` or `.env.local`); Express/Fastify usually `.env` via `dotenv`. Path is **relative to `.ripplo/`** — repo-root `.env.local` is `../.env.local`; monorepo `apps/server/.env` is `../apps/server/.env`. Confirm the detected path in plain terms rather than asking the user to choose a path cold.
 - **App URL** (`RIPPLO_APP_URL`): where the user's frontend loads in a browser — the base URL Playwright navigates to. In a separate-frontend/backend setup, this is the **frontend** dev server (e.g. Vite on `:5173`, Next.js on `:3000`). Default `http://localhost:3000`.
-- **Engine URL** (`RIPPLO_ENGINE_URL`, optional): where Ripplo reaches the backend adapter (preconditions, observers, webhooks). Defaults to `<app-url>/ripplo` — correct when frontend and backend are the same server. **Override** when the backend runs on a different port (e.g. Vite frontend on `:5173`, API on `:3000` → engine URL is `http://localhost:3000/ripplo`) or when the adapter mounts at a different prefix.
+- **Engine URL** (`RIPPLO_ENGINE_URL`, optional): where Ripplo reaches the backend adapter. Defaults to `<app-url>/ripplo` — correct when frontend and backend are the same server. **Override** when the backend runs on a different port (e.g. Vite frontend on `:5173`, API on `:3000` → engine URL is `http://localhost:3000/ripplo`).
 
-When asking the user, explain in plain terms — they're new to Ripplo and won't know what an "adapter" or "engine" is. Phrase it like: "Where does your frontend run in dev?" and "Does your backend run on the same port, or a different one?" Use the answers to fill in the URLs yourself.
+When asking, explain in plain terms: "Where does your frontend run in dev?" and "Does your backend run on the same port, or a different one?" Use the answers to fill in the URLs yourself.
 
 ```sh
 npx ripplo init --project <id> --env ../.env.local --app-url <url> [--engine-url <url>]
@@ -61,47 +61,57 @@ npx ripplo init --project <id> --env ../.env.local --app-url <url> [--engine-url
 
 `--env` is **relative to `.ripplo/`** (so a repo-root `.env.local` is `../.env.local`).
 
-Init scaffolds `.ripplo/{index.ts, tsconfig.json, project.json, preconditions/, observers/, tests/}`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPPLO_WEBHOOK_SECRET` / `ENABLE_RIPPLO_TESTING=true` to the chosen env file, installs `@ripplo/testing`, compiles the initial lockfile, and ensures the Playwright browser. **Don't hand-write any of those files** — init owns scaffolding.
+Init scaffolds `.ripplo/{index.ts, tsconfig.json, project.json, entities/, singletons/, worlds/, tests/}`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPPLO_WEBHOOK_SECRET` / `ENABLE_RIPPLO_TESTING=true` to the chosen env file, installs `@ripplo/testing` + `@ripplo/instrument`, compiles the initial lockfile, and ensures the Playwright browser. **Don't hand-write any of those files** — init owns scaffolding.
 
-## 3. Start `ripplo watch` as a background process
+## 3. Start `ripplo daemon` as a background process
 
-`ripplo watch` is the long-running process that actually executes tests in a local browser when you (or the dashboard) trigger a run. It must stay alive for the duration of the dev session. Spawn it via `Bash` with `run_in_background`, set `cwd` to the directory containing `.ripplo/` (workspace root in monorepos). Tell the user: "I'm starting `ripplo watch` in the background — this is what runs your tests locally. Leave it running while you work." The user's app dev server is a separate process — make sure it's also running (start it the same way if it isn't, or skip if it's already up).
+`ripplo daemon` is the long-running process that executes tests in a local browser when you (or the dashboard) trigger a run. It must stay alive for the dev session. Spawn it via `Bash` with `run_in_background`, set `cwd` to the directory containing `.ripplo/` (workspace root in monorepos). Tell the user: "I'm starting `ripplo daemon` in the background — this runs your tests locally. Leave it running while you work." The user's app dev server is a separate process — make sure it's also running.
 
-Steps 6–7 (`ripplo doctor`, the first run) depend on watch being live, so do this before moving on.
+Steps 6–7 (`ripplo doctor`, the first run) depend on the daemon being live, so do this before moving on.
 
 ## 4. Mount the engine adapter
 
-Init wrote `ENABLE_RIPPLO_TESTING=true` to the env file alongside the `RIPPLO_*` vars. This flag is the kill switch for the test integration on the user's backend — the adapter refuses to do anything unless it's `true`, so the test routes can never accidentally run in production. Tell the user: "Init added `ENABLE_RIPPLO_TESTING=true` to your env file — this turns on the test-only routes I'm about to add. It should only ever be `true` in dev — never set it in prod."
+Init wrote `ENABLE_RIPPLO_TESTING=true` to the env file alongside the `RIPPLO_*` vars. This flag is the kill switch for the test integration on the user's backend — the adapter refuses to do anything unless it's `true`, so the test routes can never accidentally run in production. Tell the user: "Init added `ENABLE_RIPPLO_TESTING=true` to your env file — this turns on the test-only routes I'm about to add. It should only ever be `true` in dev."
 
-Before editing, explain to the user what you're about to do: "I'm adding a small route to your backend (mounted at `/ripplo` by default, behind the `ENABLE_RIPPLO_TESTING` flag). Tests use it to set up data they need before running (preconditions) and to verify backend state after running (observers) — without your test code having to touch the database directly."
+Before editing, explain what you're about to do: "I'm adding a small route to your backend (mounted at `/ripplo` by default, behind the `ENABLE_RIPPLO_TESTING` flag). Tests use it to set up the data they need before running and to read back database state for verification — without your test code touching the database directly."
 
-Detect the framework from `package.json` and use the matching adapter from `packages/testing/README.md` ("Server adapters"): `@ripplo/testing/{express,fastify,nextjs,hono,koa,nestjs,elysia}`, or the raw engine for unsupported frameworks.
-
-Create `<app>/src/test/engine.ts` — the implementation funnel:
+The **engine funnel** maps each entity in `.ripplo/entities/` to a `seed` (create a row) and `read` (return this run's rows) implementation against your DB. Create `<app>/src/test/engine.ts`:
 
 ```ts
 import { createEngine } from "@ripplo/testing";
 import ripplo from "../../../../.ripplo/index.js";
+import { impls } from "./impls.js"; // per-entity { seed, read } — see /ripplo:create "Adding an entity"
 
-export const engine = createEngine(ripplo, { preconditions: {}, observers: {} });
+export const engine = createEngine(ripplo, { entities: impls, singletons: {} }, teardown);
 ```
 
-Then mount the adapter. Express example (other frameworks in the testing README):
+`impls` starts empty and grows one entry per entity as tests are written — TS errors until every entity has an impl. `teardown` deletes a run's seeded rows by run id.
+
+Then mount the adapter. Express:
 
 ```ts
-import { createExpressHandler } from "@ripplo/testing/express";
+import { createEngineHandler } from "@ripplo/testing/express";
 import { engine } from "./test/engine.js";
 
 app.use(
   "/ripplo",
-  createExpressHandler({
-    enabled: process.env.ENABLE_RIPPLO_TESTING === "true",
-    engine,
-  }),
+  createEngineHandler({ enabled: process.env.ENABLE_RIPPLO_TESTING === "true", engine }),
 );
 ```
 
-**Bind `enabled` to the env flag — never hardcode `true`.** The mount path **must match** the `RIPPLO_ENGINE_URL` suffix.
+**Bind `enabled` to the env flag — never hardcode `true`.** The mount path is the `RIPPLO_ENGINE_URL` path — when `RIPPLO_ENGINE_URL` ends in `/ripplo`, mount at `/ripplo`. For non-Express frameworks, adapt the engine's `setup`/`state`/`teardown` to your router (the Express adapter is the reference).
+
+### Preload `@ripplo/instrument` in the dev server
+
+Add the `@ripplo/instrument` preload (installed by init) to the backend's dev script so test runs capture backend spans alongside browser actions:
+
+```sh
+node --import @ripplo/instrument server.js
+tsx watch --import @ripplo/instrument src/index.ts
+NODE_OPTIONS="--import @ripplo/instrument" next dev
+```
+
+Frameworks with a register hook (Next.js `instrumentation.ts`) can `import { register } from "@ripplo/instrument/register"` and call it instead. The preload is dormant when no daemon is running — safe to leave in the dev script permanently. Tell the user: "I'm adding a one-flag preload to your dev script — it streams your backend's spans into Ripplo's test traces so failures show what the server did, not just what the browser saw." Restart the dev server after adding it.
 
 ## 5. Install the pre-commit hook
 
@@ -119,24 +129,23 @@ With husky/lefthook/simple-git-hooks, gate the same `npx ripplo compile --check`
 
 ## 6. Verify install
 
-Run `npx ripplo doctor` and resolve every issue before moving on. The two key checks: the app's dev server is reachable at `RIPPLO_APP_URL`, and the dev session is live (`ripplo watch` running). If something's red, fix it (or restart the relevant process) — don't continue to step 7 with warnings outstanding. Briefly tell the user what doctor confirmed ("Your dev server and the local executor are both up — Ripplo can reach them.") so they know setup is on track.
+Run `npx ripplo doctor` and resolve every issue before moving on. The two key checks: the app's dev server is reachable at `RIPPLO_APP_URL`, and the dev session is live (`ripplo daemon` running). If something's red, fix it — don't continue to step 7 with warnings outstanding. Briefly tell the user what doctor confirmed.
 
 ## 7. Author and run a first test (first-time setup only)
 
-**Skip this step if `.ripplo/tests/` already contains tests** — re-runs of setup, worktrees, and adapter remounts don't need to produce a fresh passing run, and the user isn't sitting in the onboarding UI.
+**Skip this step if `.ripplo/tests/` already contains tests.**
 
-For a true first-time setup (no existing tests), setup isn't complete until the user has **at least one passing run**. The web onboarding flow keeps the user parked on a "Setting things up…" screen with the Continue button disabled until a run reports `status=completed` and `hasFailed=false`. Tell the user this up front: "I'll write a tiny first test and run it — that unblocks the Continue button in the dashboard."
+For a true first-time setup (no existing tests), setup isn't complete until the user has **at least one passing run**. The web onboarding flow keeps the user on a "Setting things up…" screen with the Continue button disabled until a run reports `status=completed` and `hasFailed=false`. Tell the user up front: "I'll write a tiny first test and run it — that unblocks the Continue button in the dashboard."
 
-- Hand off to the **`/ripplo:create`** skill — it owns test authoring + running and is what produces an executable test. (`/ripplo:explore` only stubs `.notImplemented()` tests, so it cannot satisfy the onboarding gate.)
+- Hand off to **`/ripplo:create`** — it owns test authoring + running.
 - Pick a trivial smoke test as the first one (e.g. load the app's entry route and assert a top-level element renders) so it passes without deep app-specific knowledge. If the entry surface is non-obvious, ask the user via `AskUserQuestion`.
-- Run it with `npx ripplo run <name>`. If it fails, debug using artifacts under `.ripplo/debug/<runId>/` before declaring setup done — do not leave the user staring at a red first run.
+- Run it with `npx ripplo run <test-id>` (the slug from `ripplo compile` output; the quoted intent string also works). If it fails, debug using `.ripplo/debug/<runId>/behavior.jsonl` before declaring setup done — don't leave the user staring at a red first run.
 
 ## Rules
 
-- First-time setup isn't done until one test has passed — the onboarding "Continue" button waits on this signal. If `.ripplo/tests/` already has tests, step 7 doesn't apply and stopping at step 6 is correct.
+- First-time setup isn't done until one test has passed — the onboarding "Continue" button waits on this signal. If `.ripplo/tests/` already has tests, step 7 doesn't apply.
 - Never bypass webhook signature checking or hardcode the secret.
 - Never hardcode `enabled: true`.
-- Adapter mount path must match `RIPPLO_ENGINE_URL` suffix — mismatches silently fail.
-- Prefer a first-class adapter; raw engine only for unsupported frameworks.
-- `ripplo watch` runs from the directory containing `.ripplo/` — set the Bash `cwd` accordingly in monorepos.
-- **Worktrees are self-contained** (own DevSession, scope, debug artifacts), but env files don't carry over (they're typically gitignored) and dev-server ports collide between siblings. In a fresh worktree: copy the env file from main (or symlink to a shared one), pick a distinct dev-server port for this worktree, and **update both `RIPPLO_APP_URL` and `RIPPLO_ENGINE_URL` in that env file to point at the new port** (e.g. `RIPPLO_APP_URL=http://localhost:3001`, `RIPPLO_ENGINE_URL=http://localhost:3001/ripplo`). `ripplo doctor` flags missing env files.
+- Adapter mount path must match the `RIPPLO_ENGINE_URL` suffix — mismatches silently fail.
+- `ripplo daemon` runs from the directory containing `.ripplo/` — set the Bash `cwd` accordingly in monorepos.
+- **Worktrees are self-contained** (own DevSession, scope, debug artifacts), but env files don't carry over (typically gitignored) and dev-server ports collide between siblings. In a fresh worktree: copy the env file from main (or symlink a shared one), pick a distinct dev-server port, and **update both `RIPPLO_APP_URL` and `RIPPLO_ENGINE_URL` in that env file to point at the new port**. `ripplo doctor` flags missing env files.
