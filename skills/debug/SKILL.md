@@ -36,6 +36,14 @@ grep '"kind":"network"' .ripplo/debug/<runId>/behavior.jsonl       # 4xx/5xx aro
 
 The run output itself renders the oracle's **findings** — the structured reason a step failed. Read those first; the behavior stream is the corroborating detail.
 
+To **see** the page at any moment, render a screenshot from the rrweb stream and Read the printed PNG:
+
+```sh
+npx ripplo snapshot <runId> --at <timestamp>      # epoch-ms timestamp from any behavior.jsonl event
+```
+
+Grep the failing event's `"timestamp"` first, then snapshot at it — the jsonl tells you _why_, the PNG shows _what it looked like_.
+
 ## The decision: app bug vs model gap
 
 Every finding forces one of four moves. The run output's `decide:` line names the likely branch — confirm it against behavior.jsonl before acting:
