@@ -17,7 +17,7 @@ npx ripplo report-bug \
   --test "<test id>"
 ```
 
-`--run` and `--test` are optional but include them whenever you have them — they link the bug to its replay on the dashboard. `--test` takes the test's intent string (same id you pass to `npx ripplo run`).
+`--run` and `--test` are optional but include them whenever you have them — they link the bug to its replay on the dashboard. `--test` takes the test's intent string (same id you pass to `npx ripplo run`). EXCEPTION: never pass an exploration run id (`explore-...`) as `--run` — exploration runs have no server Run row and the server rejects the report; cite the exploration run id in `--surfaced-by` instead.
 
 ## The bar for filing
 
