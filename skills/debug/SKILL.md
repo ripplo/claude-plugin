@@ -1,6 +1,6 @@
 ---
 name: debug
-description: "Debug a failing Ripplo test using the run output and the captured behavior stream in .ripplo/debug/."
+description: "Debug a failing Ripplo test using the run output and the captured behavior stream in .ripplo/debug/. Also handles exploration findings: invoke with 'findings' (or when asked to triage exploration findings) to triage what the background explorer caught."
 ---
 
 # Debug Ripplo Test
@@ -83,6 +83,25 @@ Multiple failures: pick the most upstream one (a world/seed or shared-entity iss
 - **App bug** — file via `npx ripplo report-bug` (kind tree in "The decision" above; full bar in `/ripplo:report`), then report to the user with the finding + the failing step + relevant `network`/`error`/source excerpt. Don't work around.
 - **Stale lockfile** (422 on push / "unsupported lockfile version") — `npx ripplo compile` and commit. Never hand-edit the lockfile.
 - **Server out of sync** — `npx ripplo run` reports `Test "<slug>" was synced but the server didn't return it`. Run `npx ripplo sync` to re-push.
+
+## Findings mode (exploration triage)
+
+Invoked as `/ripplo:debug findings` (or any ask to triage exploration findings). The daemon's background explorer (P3) composes action sequences no test author wrote and records oracle violations as **findings** in a local ledger. Your job is the refine step: confirm each finding, classify it, fix, and verify.
+
+**List:** `npx ripplo explore findings` — pending findings sorted in triage order (oracle layer ascending: crash → invariant → law → frame; occurrence count descending within a layer), plus recurrent flaky-candidates (same divergence 3+ times, never deterministically reproduced — triage these last; they usually indicate a race). Each entry shows a `diverged:` summary — findings with the same diverging step usually share one root cause; fix the shared cause once, then replay the siblings. `--json` for machine-readable output. Scope to what the user asked for — default is all pending; a count or a specific id narrows it.
+
+**Detail:** `npx ripplo explore findings <id>` — one finding's full evidence: the oracle's rendered divergence lines (expected vs observed), trail, occurrence window, captured run + behavior.jsonl path. Read this before opening the behavior stream.
+
+**Per finding, one at a time:**
+
+1. **Evidence.** Start with `npx ripplo explore findings <id>`. The finding's `run <runId>` is a captured exploration run — read `.ripplo/debug/<runId>/behavior.jsonl` with the same grep/snapshot recipes above. The trail line shows the minimal action sequence (`test#step` labels) that triggers it.
+2. **Classify** — same decision as above, sharper stakes:
+   - **App bug** — the model is right, the app breaks when actions compose this way. Fix the app. File it: `npx ripplo report-bug` with the exploration run id (`--test` omitted — there is no test); kind per the decision tree above (usually `latent_bug` — exploration finds territory no author covered).
+   - **Model gap** — the oracle fired because a declaration is missing or wrong (an effect the transition really has but never declared, a view-law scoped too broadly, a world builder producing an unintended state). Fix the declaration in `.ripplo/`.
+3. **Verify + resolve:** `npx ripplo explore replay <findingId>` — replay is the only way any fix (app or model) gets re-validated. A clean replay resolves the finding and marks its targets covered under the current model. If the model edit made the witnessed composition unplannable (e.g. a narrowed `given`), replay reports it **unreachable** and resolves the finding — make sure a test covers the state you excluded. Still-reproduces means the fix didn't land; diverged means the behavior changed but is still wrong — re-read evidence.
+4. **After any fix, replay the other pending findings before deep-diving them** — one root cause often resolves siblings with different signatures.
+
+**Add-vs-weaken guardrail.** Model edits that ADD declarations (a missing effect, a narrowing `when` condition, a new covering test) are normal fixes. Model edits that DELETE or WEAKEN declarations (dropping a law, removing a declared effect, coarsening a vocabulary) make the oracle permanently blind there — only do this after proving from app source that the current behavior is intended, and cite that proof to the user. Never silence a finding by loosening the model when the app is wrong.
 
 ## Discipline
 
