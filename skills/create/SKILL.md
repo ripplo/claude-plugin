@@ -5,7 +5,7 @@ description: "Create a new Ripplo e2e test: model the state it touches as entiti
 
 # Create Ripplo Test
 
-If the flow doesn't work yet, fix the app first or in lockstep — never weaken the test to paper over an app bug. New scaffolding the test needs (a new entity + its engine impl, a new world builder) is in-scope work, not a follow-up.
+If the flow doesn't work yet, fix the app first or in lockstep — never weaken the test to paper over an app bug. Confirmed real app bug while authoring? File it with `npx ripplo report-bug`: pre-existing bug in an **existing** flow exposed by your new coverage → `--kind latent_bug`; bug in the thing being built this session → `--kind new_feature_bug`; previously-working behavior broken by a recent change → `--kind regression`. Only confirmed functionality bugs — not locator/world/test problems. Full bar + field guidance in `/ripplo:report`. New scaffolding the test needs (a new entity + its engine impl, a new world builder) is in-scope work, not a follow-up.
 
 Backend verification is automatic: you declare expected DB state inline (`Entity.created/updated/deleted`) and the **oracle** checks observed-vs-model after each step.
 

@@ -49,7 +49,7 @@ Grep the failing event's `"timestamp"` first, then snapshot at it — the jsonl 
 
 Every finding forces one of four moves. The run output's `decide:` line names the likely branch — confirm it against behavior.jsonl before acting:
 
-1. **App bug** — the model describes the promised behavior and the app diverged. Fix the app. Never weaken the test to match broken behavior.
+1. **App bug** — the model describes the promised behavior and the app diverged. Fix the app. Never weaken the test to match broken behavior. **File it**: `npx ripplo report-bug` with the run id and evidence. Kind: broken behavior was built this session → `--kind new_feature_bug`; it worked before a recent change broke it → `--kind regression`; it was already broken and new coverage exposed it → `--kind latent_bug`. File only confirmed functionality bugs in the app under test — never test gaps, locator/race issues, or infra flakes. Full bar + field guidance in `/ripplo:report`.
 2. **Strengthen the assertion** — the app is right and the test under-specified the outcome (e.g. a mutation with no backend effect declared, a `ghost-write` for a side effect the flow really does perform). Add the missing `created/updated/deleted` or UI check.
 3. **Restrict the `given`** — the expected behavior only holds from a narrower starting state (e.g. the flow behaves differently when a row already exists). Tighten this test's world so it always starts in the state its assertions assume.
 4. **Split into a new test** — the case you just excluded by restricting `given` is real behavior the model should cover. Stub a new test for it with its own world and click path, and put it in scope. Restriction without a covering test is a coverage hole, not a fix.
@@ -80,7 +80,7 @@ Multiple failures: pick the most upstream one (a world/seed or shared-entity iss
 - **Duplicate locator (strict mode)** — Playwright `resolved to 2 elements`. Two identically-named elements (header CTA + empty-state CTA, one icon button per row). Scope the target: `inside(main(), button("New"))`, `inside(row(schedule.name), button("Delete"))`, `inside(dialog("Edit"), button("Save"))`. Container rows usually need an `aria-label` in the app — add it; don't fall back to `testId`.
 - **World / seed wrong** — the starting state isn't what the test assumes. The engine impl's `seed` produced the wrong row, or its `read` isn't scoped to the run. Check the impl, not the test.
 - **Parallel collision** — unique-constraint error, 401 mid-run, or rows vanishing while a test runs. The engine impl isn't isolating per-run (run-scoped ids in `seed`, `runPrefix(runId)` in `read`/cleanup). Fix the impl (see `/ripplo:create` → "Parallel safety").
-- **App bug** — report to the user with the finding + the failing step + relevant `network`/`error`/source excerpt. Don't work around.
+- **App bug** — file via `npx ripplo report-bug` (kind tree in "The decision" above; full bar in `/ripplo:report`), then report to the user with the finding + the failing step + relevant `network`/`error`/source excerpt. Don't work around.
 - **Stale lockfile** (422 on push / "unsupported lockfile version") — `npx ripplo compile` and commit. Never hand-edit the lockfile.
 - **Server out of sync** — `npx ripplo run` reports `Test "<slug>" was synced but the server didn't return it`. Run `npx ripplo sync` to re-push.
 
