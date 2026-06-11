@@ -9,7 +9,7 @@ Use this when the user pastes a `Ripplo replay feedback` block — produced by t
 
 ## What the payload gives you
 
-- **Run handle** — `npx ripplo snapshot <runId> --at <epochMs>` reproduces the exact frame. The PNG path is printed; Read it. You are looking at what the user looked at.
+- **Run handle** — `npx ripplo snapshot <runId> --at <epochMs>` reproduces the exact frame. The PNG path is printed; Read it. You are looking at what the user looked at. For every snapshot after that one, prefer `--offset <ms>` — ms from the start of the recording — over epoch arithmetic; the success output prints each frame's offset and the recording's duration, so bracketing is just `--offset 50`, `--offset 150`, `--offset 300`.
 - **Element identity** — tag, role/name, testid, and a best-effort CSS selector. The selector is a **hint, not ground truth**: the replayed DOM may lack stable hooks. Trust the screenshot + the user's note + the source anchor over the selector.
 - **Temporal context** — the offset and nearest step title ("320ms into 'goto /event-types'"). This is how you relocate the same moment in a _new_ run.
 - **Source anchor** — the test's `sourcePath` @ commit sha. File-level only; find the component from the element identity + your knowledge of the app.
@@ -20,7 +20,7 @@ Use this when the user pastes a `Ripplo replay feedback` block — produced by t
 2. **Find the code.** Use the element identity (testid, role, text) and the flagged computed styles to locate the component. The test source file shows which flow renders it.
 3. **Make ONE targeted change.**
 4. **Re-run the test** named by the source anchor: `npx ripplo run <test-id>`.
-5. **Snapshot the same phase in the new run.** Timestamps do NOT carry across runs — timings shift. Relocate by phase, not by ms: grep the new `.ripplo/debug/<newRunId>/behavior.jsonl` for the step named in the payload's temporal context, take its `"timestamp"`, add the payload's offset-within-step, and snapshot there. Adjust ±100–300ms if the moment is animation-sensitive.
+5. **Snapshot the same phase in the new run.** Timestamps do NOT carry across runs — timings shift. Relocate by phase, not by absolute ms: in the new run, the payload's "Nms into step" usually lands near the same offset-from-recording-start, so start with `--offset` at the baseline frame's printed offset and bracket ±100–300ms. For precision, grep the new `.ripplo/debug/<newRunId>/behavior.jsonl` for the step named in the payload's temporal context, take its `"timestamp"`, add the payload's offset-within-step, and pass that via `--at`.
 6. **Read the new PNG and compare against the baseline.** State plainly whether the complaint is fixed. If not, loop with a new hypothesis — don't stack changes.
 
 ## Timing complaints ("X appears after Y", "flashes", "janky")

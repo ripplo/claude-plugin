@@ -40,9 +40,10 @@ To **see** the page at any moment, render a screenshot from the rrweb stream and
 
 ```sh
 npx ripplo snapshot <runId> --at <timestamp>      # epoch-ms timestamp from any behavior.jsonl event
+npx ripplo snapshot <runId> --offset <ms>         # ms from the start of the recording (0–duration)
 ```
 
-Grep the failing event's `"timestamp"` first, then snapshot at it — the jsonl tells you _why_, the PNG shows _what it looked like_.
+Grep the failing event's `"timestamp"` first, then snapshot at it — the jsonl tells you _why_, the PNG shows _what it looked like_. Use `--offset` when you think in "N ms into the recording" (e.g. bracketing early-load frames: `--offset 0`, `--offset 100`, `--offset 250`) — no epoch arithmetic needed. An out-of-range moment prints the recording's span and duration.
 
 ## The decision: app bug vs model gap
 
