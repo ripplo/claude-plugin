@@ -5,30 +5,30 @@ description: "Act on Ripplo replay feedback: reproduce the flagged frame with ri
 
 # Iterate on Replay Feedback
 
-Use this when the user pastes a `Ripplo replay feedback` block — produced by the replay UI's inspect mode. The payload names a run, an exact frame (`--at` epoch-ms), the flagged element, and the user's note. Your job is a closed visual loop: see the baseline, change the app, re-run, see the result.
+Use when the user pastes a `Ripplo replay feedback` block (from the replay UI's inspect mode). The payload names a run, an exact frame (`--at` epoch-ms), the flagged element, and the user's note. Your job is a closed visual loop: see the baseline, change the app, re-run, see the result.
 
-## What the payload gives you
+## The payload
 
-- **Run handle** — `npx ripplo snapshot <runId> --at <epochMs>` reproduces the exact frame. The PNG path is printed; Read it. You are looking at what the user looked at. For every snapshot after that one, prefer `--offset <ms>` — ms from the start of the recording — over epoch arithmetic; the success output prints each frame's offset and the recording's duration, so bracketing is just `--offset 50`, `--offset 150`, `--offset 300`.
-- **Element identity** — tag, role/name, testid, and a best-effort CSS selector. The selector is a **hint, not ground truth**: the replayed DOM may lack stable hooks. Trust the screenshot + the user's note + the source anchor over the selector.
-- **Temporal context** — the offset and nearest step title ("320ms into 'goto /event-types'"). This is how you relocate the same moment in a _new_ run.
-- **Source anchor** — the test's `sourcePath` @ commit sha. File-level only; find the component from the element identity + your knowledge of the app.
+- **Run handle** — `npx ripplo snapshot <runId> --at <epochMs>` reproduces the exact frame; Read the printed PNG. For later snapshots prefer `--offset <ms>` (ms from recording start) — the output prints each frame's offset and the duration, so bracketing is `--offset 50`, `--offset 150`, `--offset 300`.
+- **Element identity** — tag, role/name, testid, best-effort CSS selector. The selector is a hint, not ground truth — trust the screenshot, the user's note, and the source anchor over it.
+- **Temporal context** — offset and nearest step title ("320ms into 'goto /event-types'"). This is how you relocate the same moment in a new run.
+- **Source anchor** — the test's `sourcePath` @ commit sha. File-level only; find the component from the element identity.
 
 ## The loop
 
-1. **See the baseline.** Run the payload's snapshot command, Read the PNG. Confirm you see what the note describes. If sub-second timing matters (skeleton flashes, staggered loads, transitions), snapshot 2–3 nearby moments (±100–300ms) to bracket the behavior.
-2. **Find the code.** Use the element identity (testid, role, text) and the flagged computed styles to locate the component. The test source file shows which flow renders it.
-3. **Make ONE targeted change.**
-4. **Re-run the test** named by the source anchor: `npx ripplo run <test-id>`.
-5. **Snapshot the same phase in the new run.** Timestamps do NOT carry across runs — timings shift. Relocate by phase, not by absolute ms: in the new run, the payload's "Nms into step" usually lands near the same offset-from-recording-start, so start with `--offset` at the baseline frame's printed offset and bracket ±100–300ms. For precision, grep the new `.ripplo/debug/<newRunId>/behavior.jsonl` for the step named in the payload's temporal context, take its `"timestamp"`, add the payload's offset-within-step, and pass that via `--at`.
-6. **Read the new PNG and compare against the baseline.** State plainly whether the complaint is fixed. If not, loop with a new hypothesis — don't stack changes.
+1. **See the baseline.** Run the payload's snapshot command, Read the PNG, confirm it shows what the note describes. If sub-second timing matters (skeleton flashes, staggered loads), bracket 2–3 nearby moments (±100–300ms).
+2. **Find the code** from the element identity and flagged styles; the test source shows which flow renders it.
+3. **Make one targeted change.**
+4. **Re-run** the test named by the source anchor: `npx ripplo run <test-id>`.
+5. **Snapshot the same phase in the new run.** Timestamps don't carry across runs — relocate by phase, not absolute ms. Start with `--offset` at the baseline frame's printed offset and bracket. For precision, grep the new behavior.jsonl for the step named in the temporal context, take its `"timestamp"`, add the payload's within-step offset, pass via `--at`.
+6. **Compare PNGs and state plainly whether the complaint is fixed.** If not, loop with a new hypothesis — don't stack changes.
 
 ## Timing complaints ("X appears after Y", "flashes", "janky")
 
-These need bracketing, not a single frame. Snapshot the same few offsets in baseline and fix runs (e.g. step-start +50ms, +150ms, +300ms) and compare the sequences. The fix is verified when the new sequence shows the elements appearing together / the flash gone — not when one lucky frame looks right.
+Bracket, don't single-frame: snapshot the same few offsets in baseline and fix runs and compare the sequences. Verified when the new sequence shows the behavior gone — not when one lucky frame looks right.
 
 ## Discipline
 
 - Never claim a visual fix without Reading the post-fix snapshot. The PNG is the proof.
-- Don't weaken or retarget the test to make the frame "right" — the test defines behavior, the feedback is about presentation within it.
-- If the baseline snapshot doesn't show the user's complaint, say so and ask before changing anything — you may be looking at the wrong moment or the wrong element.
+- Don't weaken or retarget the test to make the frame "right" — the test defines behavior; the feedback is about presentation within it.
+- If the baseline doesn't show the user's complaint, say so and ask before changing anything — you may have the wrong moment or element.

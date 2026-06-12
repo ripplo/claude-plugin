@@ -33,14 +33,17 @@ The plugin treats `src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, and `c
 
 ## Skills
 
-| Skill             | Description                                                  |
-| ----------------- | ------------------------------------------------------------ |
-| `/ripplo:setup`   | Wire the engine adapter into your app server                 |
-| `/ripplo:explore` | Crawl your codebase and generate test specs                  |
-| `/ripplo:create`  | Create a new test spec                                       |
-| `/ripplo:scope`   | Manage Testing Scope (visible to the user in Developer Mode) |
-| `/ripplo:run`     | Run tests in parallel                                        |
-| `/ripplo:debug`   | Debug failures using DOM snapshots and network traces        |
+| Skill              | Description                                                    |
+| ------------------ | -------------------------------------------------------------- |
+| `/ripplo:setup`    | One-time onboarding: auth, scaffold, engine adapter, first run |
+| `/ripplo:start`    | Bring up the dev server + daemon for the dev session           |
+| `/ripplo:discover` | Crawl your codebase to map flows and plan test coverage        |
+| `/ripplo:create`   | Create a new test spec                                         |
+| `/ripplo:run`      | Run tests and manage Testing Scope                             |
+| `/ripplo:debug`    | Debug failures using DOM snapshots and network traces          |
+| `/ripplo:fuzz`     | Triage findings from the background explorer                   |
+| `/ripplo:iterate`  | Act on replay feedback with snapshot-verified visual fixes     |
+| `/ripplo:report`   | File a caught application bug to the dashboard                 |
 
 ## Testing Scope
 
