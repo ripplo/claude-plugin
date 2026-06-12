@@ -9,5 +9,9 @@
   "repository": "https://github.com/ripplo/claude-plugin",
   "homepage": "https://ripplo.ai",
   "license": "MIT",
-  "keywords": ["e2e", "testing", "tests"]
+  "keywords": [
+    "e2e",
+    "testing",
+    "tests"
+  ]
 }
