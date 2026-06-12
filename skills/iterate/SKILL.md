@@ -30,5 +30,5 @@ Bracket, don't single-frame: snapshot the same few offsets in baseline and fix r
 ## Discipline
 
 - Never claim a visual fix without Reading the post-fix snapshot. The PNG is the proof.
-- Don't weaken or retarget the test to make the frame "right" — the test defines behavior; the feedback is about presentation within it.
+- Don't weaken or retarget the workflow to make the frame "right" — the workflow defines behavior; the feedback is about presentation within it.
 - If the baseline doesn't show the user's complaint, say so and ask before changing anything — you may have the wrong moment or element.

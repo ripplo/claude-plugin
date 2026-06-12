@@ -1,6 +1,6 @@
 ---
 name: discover
-description: "Guided codebase crawl to plan Ripplo tests: map the app's user-facing surface, model the state it touches as entities + worlds, and enumerate the flows worth testing. Use when setting up Ripplo for a new project, adding tests for new features, or planning tests for recent changes."
+description: "Guided codebase crawl to plan Ripplo workflows: map the app's user-facing surface, model the state it touches as entities + worlds, and enumerate the flows worth testing. Use when setting up Ripplo for a new project, adding workflows for new features, or planning coverage for recent changes."
 ---
 
 # Ripplo Discover
@@ -21,15 +21,15 @@ Needs the app dev server + `npx ripplo daemon`. Run `npx ripplo doctor`; if miss
 
 **Inventory every state-mutating interaction** — miss nothing: dialogs, forms (incl. filters/search), inline editing, action menus, mutating toggles, drag-and-drop, bulk actions, confirmations, wizards, tabbed panels with distinct data, upload/import/export, settings saves, toast actions, keyboard shortcuts.
 
-**Inventory distinct render states per route:** empty/first-time, conditional (data/feature-flag/plan), error, loading-gated, pagination boundaries, before/after submission. Each branch is a candidate test with its own world.
+**Inventory distinct render states per route:** empty/first-time, conditional (data/feature-flag/plan), error, loading-gated, pagination boundaries, before/after submission. State-dependent outcomes within one flow become named `when` branches of a workflow — the compiler enumerates a test per branch. Distinct flows are separate workflows with their own worlds.
 
 ## Phase 2: Model the state
 
 For each flow, work out the entities and worlds it needs:
 
-- **Entities** — each DB row a flow seeds or asserts needs an `entity(...)` in `.ripplo/entities/` and a `seed`/`read` impl in the engine funnel. List what exists and what you'll add.
+- **Entities** — each record of state a flow seeds or asserts needs an `entity(...)` in `.ripplo/entities/` and a `seed`/`read` impl in the engine funnel. List what exists and what you'll add.
 - **Worlds** — the starting states flows need (logged-in user, owned project, empty list). Identify reusable builders in `.ripplo/worlds/`; note new ones, composed from existing bases.
-- **The assertion per flow** — the entity change that proves it (`Task.created`, `Member.deleted`). Can't name the row that changes? Trace the mutation to its handler first.
+- **The assertion per flow** — the entity change that proves it (`Task.created`, `Member.deleted`). Can't name the record that changes? Trace the mutation to its handler first.
 
 Mechanics live in `/ripplo:create` → "Adding an entity" / "Adding a world."
 

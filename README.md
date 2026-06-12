@@ -24,10 +24,10 @@ Then in Claude Code:
 
 Four hooks wire into the agent's workflow so tests are load-bearing, not advisory.
 
-- **UserPromptSubmit** nudges when user-facing code has drifted from `.ripplo/tests` and surfaces the flows in scope during plan mode.
-- **PreToolUse / ExitPlanMode** blocks plan exit if the plan touches user-facing code but no matching `.ripplo/tests` flow is planned.
+- **UserPromptSubmit** nudges when user-facing code has drifted from `.ripplo/workflows` and surfaces the flows in scope during plan mode.
+- **PreToolUse / ExitPlanMode** blocks plan exit if the plan touches user-facing code but no matching `.ripplo/workflows` flow is planned.
 - **PostToolUse (Edit/Write)** lints the DSL on `.ripplo/**` edits and flags user-facing edits with no matching test.
-- **Stop** lints, runs scoped and changed tests, and blocks on drift — user-facing changes without a matching `.ripplo/tests` update.
+- **Stop** lints, runs scoped and changed tests, and blocks on drift — user-facing changes without a matching `.ripplo/workflows` update.
 
 The plugin treats `src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, and `components/**` as user-facing, and ignores generated and vendor output.
 

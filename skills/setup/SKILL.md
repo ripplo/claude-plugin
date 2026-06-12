@@ -1,15 +1,15 @@
 ---
 name: setup
-description: "Initialize Ripplo from zero in a project: auth login → init → start the daemon → mount the engine adapter → first passing test. Use when a project has no `.ripplo/` directory yet, or when `npx ripplo doctor` reports the engine endpoint is missing."
+description: "Initialize Ripplo from zero in a project: auth login → init → start the daemon → mount the engine adapter → first passing run. Use when a project has no `.ripplo/` directory yet, or when `npx ripplo doctor` reports the engine endpoint is missing."
 ---
 
 # Ripplo Setup
 
-Flow: **user logs in once → run `npx ripplo init` → start `npx ripplo daemon` in the background → mount the engine adapter → author and run a first test**.
+Flow: **user logs in once → run `npx ripplo init` → start `npx ripplo daemon` in the background → mount the engine adapter → author and run a first workflow**.
 
-Most users have never used Ripplo. Narrate in plain language and explain why before asking for input or editing files. Avoid internal terms ("engine", "adapter", "entity", "world", "lockfile") in user-facing questions until you've defined them. Orientation up front: "Ripplo runs end-to-end browser tests against your app. Setup will log you in, scaffold a `.ripplo/` folder for test definitions, add a small adapter to your backend so tests can seed data and verify results, and run a first test to confirm everything works."
+Most users have never used Ripplo. Narrate in plain language and explain why before asking for input or editing files. Avoid internal terms ("engine", "adapter", "entity", "world", "lockfile") in user-facing questions until you've defined them. Orientation up front: "Ripplo runs end-to-end browser tests against your app. Setup will log you in, scaffold a `.ripplo/` folder for workflow definitions, add a small adapter to your backend so tests can seed data and verify results, and run a first test to confirm everything works."
 
-**Already-set-up repos:** if `.ripplo/tests/` exists, skip step 2 (init) and step 7 (first run), but still satisfy steps 1 and 3. Run `npx ripplo doctor` first and fix each failing check using the matching step — a rejected token or missing daemon still needs fixing.
+**Already-set-up repos:** if `.ripplo/workflows/` exists, skip step 2 (init) and step 7 (first run), but still satisfy steps 1 and 3. Run `npx ripplo doctor` first and fix each failing check using the matching step — a rejected token or missing daemon still needs fixing.
 
 ## 1. Authenticate
 
@@ -51,7 +51,7 @@ Init scaffolds `.ripplo/`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPP
 
 ## 4. Mount the engine adapter
 
-`ENABLE_RIPPLO_TESTING=true` (written by init) is the kill switch — the adapter refuses to run unless it's `true`, so test routes can never reach production. Before editing, tell the user: "I'm adding a small route to your backend (at `/ripplo`, behind the `ENABLE_RIPPLO_TESTING` flag). Tests use it to seed data and read back database state for verification."
+`ENABLE_RIPPLO_TESTING=true` (written by init) is the kill switch — the adapter refuses to run unless it's `true`, so test routes can never reach production. Before editing, tell the user: "I'm adding a small route to your backend (at `/ripplo`, behind the `ENABLE_RIPPLO_TESTING` flag). Tests use it to seed data and read back state for verification."
 
 The **engine funnel** maps each entity in `.ripplo/entities/` to a `seed` (create a row) and `read` (return this run's rows) impl against your DB. Create `<app>/src/test/engine.ts`:
 
@@ -109,12 +109,12 @@ With husky/lefthook/simple-git-hooks, gate the same check on staged `.ripplo/**/
 
 `npx ripplo doctor` — resolve every issue before moving on. Key checks: dev server reachable at `RIPPLO_APP_URL`, dev session live. Briefly tell the user what doctor confirmed.
 
-## 7. First test (first-time setup only)
+## 7. First workflow (first-time setup only)
 
-Skip if `.ripplo/tests/` already has tests. Otherwise setup isn't complete until **one run passes** — the web onboarding gates its Continue button on a run with `status=completed` and `hasFailed=false`. Tell the user up front you'll write and run a tiny first test to unblock it.
+Skip if `.ripplo/workflows/` already has workflows. Otherwise setup isn't complete until **one run passes** — the web onboarding gates its Continue button on a run with `status=completed` and `hasFailed=false`. Tell the user up front you'll write and run a tiny first workflow to unblock it.
 
 - Hand off to `/ripplo:create` — it owns authoring and running.
-- Pick a trivial smoke test (load the entry route, assert a top-level element). If the entry surface is non-obvious, ask via `AskUserQuestion`.
+- Pick a trivial smoke workflow (load the entry route, assert a top-level element). If the entry surface is non-obvious, ask via `AskUserQuestion`.
 - `npx ripplo run <test-id>`. If it fails, debug via `.ripplo/debug/<runId>/behavior.jsonl` — don't leave the user staring at a red first run.
 
 ## Rules
