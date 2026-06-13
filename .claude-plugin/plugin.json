@@ -1,7 +1,7 @@
 {
   "name": "ripplo",
   "description": "Close the loop on full-stack app delivery. Agents and users define success criteria as deterministic, backend-aware e2e tests; hooks enforce that every user-facing edit is covered; replay UI shows exactly what happened.",
-  "version": "0.7.10",
+  "version": "0.7.11",
   "author": {
     "name": "Ripplo",
     "url": "https://ripplo.ai"
