@@ -1,6 +1,6 @@
 ---
 name: run
-description: "Run Ripplo e2e tests and manage Testing Scope — the set of flows this session must prove before work counts as done. Use when executing tests, when a drift nudge fires, or when the user says 'in scope' / 'out of scope'. Not for diagnosis (use /ripplo:debug)."
+description: "Run Ripplo e2e tests, diagnose failures, manage Testing Scope, and file caught app bugs — the whole run→diagnose→file loop. Use when executing tests, when a run fails, when a drift nudge fires, when the user says 'in scope' / 'out of scope', or the moment you confirm a real app bug. For triaging background-explorer findings, use /ripplo:fuzz."
 ---
 
 # Run Ripplo Tests
@@ -16,11 +16,132 @@ npx ripplo run --all                    # full suite — minutes of compute, use
 
 ## Requirements
 
-Needs the app dev server + `npx ripplo daemon` (run refuses to dispatch otherwise). `npx ripplo doctor` checks both; if red, `/ripplo:start`. Run compiles + syncs `.ripplo/` on demand. If it reports `"<slug>" was synced but the server didn't return it`, run `npx ripplo sync`.
+Needs the app dev server + `npx ripplo daemon` (run refuses to dispatch otherwise). `npx ripplo doctor` checks both; if red, `/ripplo:start`. Run compiles + syncs `.ripplo/` on demand. If it reports `"<slug>" was synced but the server didn't return it`, run `npx ripplo sync`. Reading artifacts needs neither process.
 
-## On failure
+## On failure — read artifacts first, re-run last
 
-The CLI prints the failed step, the findings, and `Debug artifacts: .ripplo/debug/<runId>/`. Read the output and `behavior.jsonl` — don't pipe `npx ripplo run` through `grep`/`tail`/`head`, and don't re-run to reshape stdout. Only rerun after a fix. For diagnosis: `/ripplo:debug`.
+The CLI prints the failed step, the findings, and `Debug artifacts: .ripplo/debug/<runId>/`. A run takes ~30–60s and re-running tells you nothing new unless you've changed something. Don't pipe `npx ripplo run` through `grep`/`tail`/`head`, and don't re-run to reshape stdout. Only rerun after a fix.
+
+Loop: read findings + behavior stream → form a specific hypothesis (cite an event) → make one targeted change → re-run once to verify.
+
+### The behavior stream
+
+One file per run: `.ripplo/debug/<runId>/behavior.jsonl` — a sorted causal stream, one event per line, discriminated by `kind`:
+
+- `action` — a test step that ran (`click`/`fill`/`goto`/…) with its target.
+- `assertion` — a `.expect(...)` check, with `outcome: "passed" | "failed"`.
+- `rrweb` — DOM snapshots/mutations (what the page actually showed).
+- `network` — fetch/xhr responses (method, url, status).
+- `console` / `error` — page console + uncaught page errors.
+- `span` — server-side spans, linked to the browser fetch that caused them.
+
+Slice it with grep, don't dump the whole file:
+
+```sh
+grep '"outcome":"failed"' .ripplo/debug/<runId>/behavior.jsonl     # the failing assertion
+grep '"kind":"error"'   .ripplo/debug/<runId>/behavior.jsonl       # page errors
+grep '"kind":"network"' .ripplo/debug/<runId>/behavior.jsonl       # 4xx/5xx around the failure
+```
+
+Read the run output's findings first; the stream is the corroborating detail.
+
+To see the page at a moment, render a PNG from the rrweb stream and Read it:
+
+```sh
+npx ripplo snapshot <runId> --at <timestamp>      # epoch-ms from any behavior.jsonl event
+npx ripplo snapshot <runId> --offset <ms>         # ms from the start of the recording
+```
+
+Grep the failing event's `"timestamp"`, then snapshot at it — the jsonl says why, the PNG shows what it looked like. `--offset` brackets early-load frames without epoch arithmetic (`--offset 0`, `--offset 100`, `--offset 250`).
+
+### The decision: app bug vs test gap
+
+Every finding forces one of four moves. The run output's `decide:` line names the likely branch — confirm it against behavior.jsonl before acting:
+
+1. **App bug** — the workflows describe the promised behavior and the app broke it. Fix the app; never weaken the workflow to match broken behavior. File it (see "Filing a caught bug" below).
+2. **Strengthen the assertion** — the app is right and the workflow under-specified the outcome (e.g. a mutation with no backend effect declared). Add the missing `created/updated/deleted` or UI check.
+3. **Restrict the `given`** — the expected behavior only holds from a narrower starting state. Tighten this workflow's world so it always starts in the state its assertions assume. If the behavior diverges by state rather than disappearing, add a named `when` branch instead — the compiler enumerates a test per branch.
+4. **Split into a new workflow** — the case excluded by restricting `given` is real behavior the workflows should cover. Stub a new workflow with its own world and put it in scope.
+
+Moves 3 and 4 almost always pair: every `given` you tighten implies a state you stopped covering. Ask "what flow now owns that state?" before moving on.
+
+### One failing test at a time
+
+Multiple failures: pick the most upstream one (world/seed or shared-entity over a test-specific selector), own it through fix and verify, then move on. Verify with `npx ripplo run <workflow-slug>/<test-slug>` (just the workflow slug reruns every branch) until green, then bare `npx ripplo run` once so cross-test breakage surfaces. Don't batch edits across workflows — when the suite lights up red you can't tell which edit broke what.
+
+### Procedure
+
+1. Find the workflow in `.ripplo/workflows/` — its identity is the intent string passed to `workflow("<intent>")`, not the filename. A failing test is one enumerated path of that workflow (one when branch, or "main").
+2. Use the existing run's output + behavior.jsonl. Only re-run if there's no recent run or you've made a fix.
+3. Read the finding, then the failing `assertion` event, then the surrounding `action`/`network`/`error`/`rrweb` events.
+
+### Common root causes
+
+- **Wrong locator** — element not found. Check the `rrweb` DOM around the step; re-read the component source for the real ARIA role/name.
+- **Race** — the action ran before the page was ready. Add a `visible(...)` predicate to the prior step's `.expect(...)`.
+- **Backend mismatch** — an `Entity.created/updated/deleted` didn't match. The finding names the entity/field and expected-vs-actual:
+  - **wrong-value / missing-row / unexpected-row** → the app's state didn't reach what the test declared: app dropped/mis-wrote the value (check `network`/`span`), or the assertion expects the wrong value.
+  - **"never changed within the Ns wait window"** → the app still showed the pre-step value at the deadline — slow write, not wrong. Declare `wait: "slow"` (or `"async"`) on that expectation; don't switch the field to `consistency: "eventual"` (that also tolerates wrong intermediate values).
+  - Consistency flags: `strict` means the field must match immediately after the step, `eventual` means it may lag briefly and Ripplo waits for it. A wrong intermediate value under `strict` fails fast by design — app bug, not timing.
+  - Server-chosen value → assert `changed()` instead of pinning a literal.
+  - Genuine flicker-through-wrong-values (rare) → the field may need `consistency: "eventual"`.
+- **Page rule violation** — "A page rule learned from <workflow> ... never held here", naming the originating workflow. Ripplo generalizes assertions like "at URL X, heading Y is visible" into page rules enforced across tests. If your workflow legitimately reaches that URL in a different state, make the originating assertion conditional: `when(branch("no items yet").if(count(Entity).is(0)).expect(visible(heading("No items"))))`.
+- **Duplicate locator (strict mode)** — `resolved to 2 elements`. Scope the target: `inside(main(), button("New"))`, `inside(row(schedule.name), button("Delete"))`. Container rows usually need an `aria-label` in the app — add it; don't fall back to `testId`.
+- **World / seed wrong** — the starting state isn't what the workflow assumes. Check the engine impl's `seed`/`read`, not the workflow.
+- **Seed exists but the action does nothing** — the click runs, but no mutation lands and the step made no network request. The row is there, yet the button is dead because the app needs more state first (a booking that can be cancelled, a confirmed status, a toggle that unlocks the action). Snapshot the frame (`npx ripplo snapshot <runId> --at <timestamp>`) to see the disabled or no-op control, then add the missing state to the seed in the engine impl. Working out which state the handler needs is usually the hard part, not the test.
+- **Parallel collision** — unique-constraint error, 401 mid-run, rows vanishing. The engine impl isn't isolating per-run (run-scoped ids in `seed`, `runPrefix(runId)` in `read`/cleanup). See `/ripplo:create` → "Parallel safety".
+- **App bug** — file it (see below), then report to the user with the finding + failing step + evidence. Don't work around.
+- **Stale lockfile** (422 on push / "unsupported lockfile version") — `npx ripplo compile` and commit. Never hand-edit the lockfile.
+- **Server out of sync** — `"<slug>" was synced but the server didn't return it` → `npx ripplo sync`.
+
+## Filing a caught bug
+
+When a run surfaces a **real application bug**, file it so it lands on the project's Caught Bugs dashboard:
+
+```sh
+npx ripplo report-bug \
+  --kind <new_feature_bug|regression|latent_bug> \
+  --title "Short bug name" \
+  --root-cause "What was actually wrong in the app code" \
+  --surfaced-by "How the test/run exposed it — cite the failing assertion or behavior.jsonl evidence" \
+  --run <runId> \
+  --test "<test id>"
+```
+
+`--run` is required — it's the catching run, and it links the bug to its replay on the dashboard. `--test` is optional; include it when you have it. For an exploration finding, pass its `explore-…` id as `--run`: it has no server Run row so it won't link a replay, but the server records the report and you should also cite the id in `--surfaced-by`.
+
+### The bar for filing
+
+Only **functionality bugs in the app under test** — behavior a user would hit and call broken. Every dashboard entry should be something the team is glad the tests caught.
+
+Do not file:
+
+- Test gaps, wrong locators, races, under-specified assertions, world/seed problems — those are model fixes.
+- Flaky infrastructure, daemon/sync issues, stale lockfiles.
+- Style, copy, or cosmetic issues with no functional impact.
+- Anything unconfirmed against evidence (failing assertion, network/span trace, page error).
+
+### Picking the kind
+
+- Broken behavior was built **this session** → `new_feature_bug`.
+- It **worked before** a recent change broke it → `regression`.
+- It was **already broken** and new coverage exposed it → `latent_bug`.
+
+### When to file
+
+- The moment a run's decision lands on app bug — file before reporting back to the user.
+- In `/ripplo:create`, when a new test fails against an existing flow and the app is confirmed wrong → `latent_bug`.
+- After any run that caught broken behavior you then fixed — file with the run id of the catching (red) run.
+
+One report per distinct root cause. A bug breaking five tests is one report; cite the most direct test/run.
+
+### Writing the fields
+
+- `--title` — name the broken behavior, not the test: "Checkout total ignores applied coupon", not "checkout test failed".
+- `--root-cause` — the actual defect: function, file, missing branch, dropped call.
+- `--surfaced-by` — one or two sentences of evidence: which assertion failed, what behavior.jsonl showed.
+
+Filing doesn't replace telling the user — still surface it in your response with the evidence.
 
 ## Testing Scope
 
@@ -58,3 +179,5 @@ npx ripplo scope remove <scope-item-id> [<id>...]    # remove (variadic)
 - Mid-task discovery — a new flow surfaces, write its workflow.
 - Drift nudge — user-facing code changed without a matching workflow; add the missing flow or revert the change.
 - User-added free-text item — write the workflow and `scope link` it.
+  </content>
+  </invoke>

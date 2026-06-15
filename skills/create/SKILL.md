@@ -5,7 +5,7 @@ description: "Create a new Ripplo e2e workflow: model the state it touches as en
 
 # Create Ripplo Workflow
 
-If the flow doesn't work yet, fix the app first or in lockstep — never weaken the workflow to paper over an app bug. Confirmed real app bug while authoring? File it with `npx ripplo report-bug` (kind tree, bar, and fields in `/ripplo:report`). New scaffolding the workflow needs (a new entity + engine impl, a new world builder) is in-scope work, not a follow-up.
+If the flow doesn't work yet, fix the app first or in lockstep — never weaken the workflow to paper over an app bug. Confirmed real app bug while authoring? File it with `npx ripplo report-bug` (kind tree, bar, and fields in `/ripplo:run`). New scaffolding the workflow needs (a new entity + engine impl, a new world builder) is in-scope work, not a follow-up.
 
 Backend verification is automatic: declare expected backend state inline (`Entity.created/updated/deleted`) and Ripplo checks your app's actual state against what the test declared after each step.
 
@@ -67,7 +67,7 @@ This skill covers the common path. The **full primitive catalog** — every acti
 
 7. **Register it** — add the export to the `workflows` array in `.ripplo/workflows/index.ts` (funneled into `createRipplo({ entities, singletons, workflows })`). The subfolder under `.ripplo/workflows/` is the sidebar group. Unregistered workflows don't exist.
 8. `npx ripplo lint` — fix all errors. Lint also enumerates each workflow's tests and fails on unreachable when branches.
-9. `npx ripplo run <workflow-slug>` runs every enumerated test of the workflow; `<workflow-slug>/<test-slug>` runs one branch (slugs from run output; the quoted intent string also works). On failure, `/ripplo:debug`.
+9. `npx ripplo run <workflow-slug>` runs every enumerated test of the workflow; `<workflow-slug>/<test-slug>` runs one branch (slugs from run output; the quoted intent string also works). On failure, `/ripplo:run`.
 10. `npx ripplo compile` and **stage `.ripplo/ripplo.lock`** alongside the `.ripplo/*.ts` changes.
 
 ## What makes a good workflow
