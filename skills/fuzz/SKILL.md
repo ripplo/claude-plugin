@@ -13,9 +13,10 @@ If the findings log is empty or exploration is off, say so — exploration runs 
 
 - **List:** `npx ripplo explore findings` — pending findings in triage order (layer ascending: crash → data rule → page rule → frame; occurrences descending within a layer), plus recurrent flaky-candidates (same failure 3+ times, never deterministically reproduced — triage last; usually a race). `--json` for machine output. Default scope is all pending; a count or specific id from the user narrows it.
 - **Detail:** `npx ripplo explore findings <id>` — full evidence: mismatch lines (expected vs actual), trail, occurrence window, captured run + behavior.jsonl path. Read this before opening the stream.
-- **Replay:** `npx ripplo explore replay <id>` — re-executes the finding's minimal trail; the only way a fix gets re-validated.
+- **Replay:** `npx ripplo explore replay <id>` — re-executes the finding's minimal trail; the only way a fix gets re-validated. A clean replay resolves the finding.
+- **Dismiss:** `npx ripplo explore dismiss <id>` — mark a finding not-a-bug / won't-fix without a replay. Use when the evidence proves the app behavior is intended and no fix is coming — not as a shortcut past a real finding.
 
-Findings with the same `mismatch:` step usually share one root cause — fix it once, then replay the siblings.
+Resolve (clean replay) and dismiss both sync to the server, so the project's Issues dashboard reflects your triage — resolved and dismissed findings drop off the default open list. Findings with the same `mismatch:` step usually share one root cause — fix it once, then replay the siblings.
 
 ## Per finding, one at a time
 
