@@ -104,11 +104,10 @@ npx ripplo report-bug \
   --title "Short bug name" \
   --root-cause "What was actually wrong in the app code" \
   --surfaced-by "How the test/run exposed it — cite the failing assertion or behavior.jsonl evidence" \
-  --run <runId> \
-  --test "<test id>"
+  --run <runId>
 ```
 
-`--run` is required — it's the catching run, and it links the bug to its replay on the dashboard. `--test` is optional; include it when you have it. For an exploration finding, pass its `explore-…` id as `--run`: it has no server Run row so it won't link a replay, but the server records the report and you should also cite the id in `--surfaced-by`.
+`--run` is required — it's the catching run, and it links the bug to its replay on the dashboard. For an exploration finding, pass the `explore-…` run id shown by `npx ripplo explore findings`: the bug links straight to the explore finding replay on the dashboard.
 
 ### The bar for filing
 
