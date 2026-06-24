@@ -1,6 +1,6 @@
 ---
 name: run
-description: "Run Ripplo e2e tests, diagnose failures, manage Testing Scope, and file caught app bugs — the whole run→diagnose→file loop. Use when executing tests, when a run fails, when a drift nudge fires, when the user says 'in scope' / 'out of scope', or the moment you confirm a real app bug. For triaging background-explorer findings, use /ripplo:fuzz."
+description: "Run Ripplo e2e tests, diagnose failures, manage Testing Scope, and file caught app bugs — the whole run→diagnose→file loop. Use when executing tests, when a run fails, when a drift nudge fires, when the user says 'in scope' / 'out of scope', when they want to teleport / open a live browser at a step in a test, or the moment you confirm a real app bug. For triaging background-explorer findings, use /ripplo:fuzz."
 ---
 
 # Run Ripplo Tests
@@ -53,6 +53,22 @@ npx ripplo snapshot <runId> --offset <ms>         # ms from the start of the rec
 ```
 
 Grep the failing event's `"timestamp"`, then snapshot at it — the jsonl says why, the PNG shows what it looked like. `--offset` brackets early-load frames without epoch arithmetic (`--offset 0`, `--offset 100`, `--offset 250`).
+
+### When a static frame isn't enough — teleport into a live app
+
+`snapshot` is a dead PNG. When you need to actually poke the app from the failing point — open a dropdown, watch a live request, try a different input — hand the user a live browser seeded with the run up to that step:
+
+```sh
+npx ripplo teleport <workflow-slug>/<test-slug> --step <n>
+```
+
+It re-drives the real test against the real app/backend through the first `n` steps, then leaves the browser open for the user to drive. State is real (the run genuinely performed those actions); it tears down when the user closes the window.
+
+- **`--step` is a 1-based count of steps to run.** behavior.jsonl/timeline `index` is 0-based, so to land at the step shown as `index k`, pass `--step (k+1)`.
+- **It blocks until the window closes.** Never run it as a plain foreground call — you'll hang the turn. Either run it with `run_in_background`, or tell the user to launch it themselves with `! npx ripplo teleport …`.
+- **Prereqs differ from `run`:** needs the app dev server reachable and a signed-in token, but **not** `npx ripplo daemon`.
+- Fails before step `n` (an action errors or an assertion fails on the way) → it reports that finding and exits without handing over. That finding is your bug — debug it like any other.
+- It's for human exploration, not assertions. Don't teleport to verify a fix — re-run the test.
 
 ### The decision: app bug vs test gap
 
