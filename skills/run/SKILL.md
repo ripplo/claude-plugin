@@ -26,7 +26,7 @@ Loop: read findings + behavior stream → form a specific hypothesis (cite an ev
 
 ### The behavior stream
 
-One file per run: `.ripplo/debug/<runId>/behavior.jsonl` — a sorted causal stream, one event per line, discriminated by `kind`:
+One file per run: `.ripplo/debug/<runId>/behavior.jsonl` — a sorted causal stream, one event per line, discriminated by `kind`. If that file isn't on disk — a cloud run, or the folder was cleaned up — pull it from the server first: `npx ripplo pull <runId>` writes it to `.ripplo/debug/<runId>/behavior.jsonl`. Events:
 
 - `action` — a test step that ran (`click`/`fill`/`goto`/…) with its target.
 - `assertion` — a `.expect(...)` check, with `outcome: "passed" | "failed"`.
@@ -123,7 +123,7 @@ npx ripplo report-bug \
   --run <runId>
 ```
 
-`--run` is required — it's the catching run, and it links the bug to its replay on the dashboard. For an exploration finding, pass the `explore-…` run id shown by `npx ripplo explore findings`: the bug links straight to the explore finding replay on the dashboard.
+`--run` is required — it's the catching run, and it links the bug to its replay on the dashboard. For an exploration finding, pass its repro `explore-…` run id (shown on the finding in the Issues dashboard): the bug links straight to the finding.
 
 ### The bar for filing
 

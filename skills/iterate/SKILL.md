@@ -20,7 +20,7 @@ Use when the user pastes a `Ripplo replay feedback` block (from the replay UI's 
 2. **Find the code** from the element identity and flagged styles; the test source shows which flow renders it.
 3. **Make one targeted change.**
 4. **Re-run** the test named by the source anchor: `npx ripplo run <test-id>`.
-5. **Snapshot the same phase in the new run.** Timestamps don't carry across runs — relocate by phase, not absolute ms. Start with `--offset` at the baseline frame's printed offset and bracket. For precision, grep the new behavior.jsonl for the step named in the temporal context, take its `"timestamp"`, add the payload's within-step offset, pass via `--at`.
+5. **Snapshot the same phase in the new run.** Timestamps don't carry across runs — relocate by phase, not absolute ms. Start with `--offset` at the baseline frame's printed offset and bracket. For precision, grep the new behavior.jsonl for the step named in the temporal context, take its `"timestamp"`, add the payload's within-step offset, pass via `--at`. If the file isn't on disk (cloud run), pull it first: `npx ripplo pull <runId>`.
 6. **Compare PNGs and state plainly whether the complaint is fixed.** If not, loop with a new hypothesis — don't stack changes.
 
 ## Timing complaints ("X appears after Y", "flashes", "janky")
