@@ -19,8 +19,9 @@ Exploration is toggled from the dev mode bar (the explore popover). If there are
 2. **Classify** — app bug vs test gap (the four-move decision tree lives in `/ripplo:run`):
    - **App bug** — the workflows are right; the app breaks when actions compose this way. Fix the app and file it with `npx ripplo report-bug` (bar and fields in `/ripplo:run`) — pass the `explore-…` repro run id as `--run` to link the bug to the finding, and cite it in `--surfaced-by`.
    - **Test gap** — the check failed because a declaration is missing or wrong: an effect the action really has but never declared, a page rule scoped too broadly, a world producing an unintended state. Fix the declaration in `.ripplo/`.
-3. **Resolve.** After the fix, mark the finding resolved (or dismissed, if the evidence proves the app behavior is intended) in the Issues dashboard. The explorer dedupes by signature, so a real fix means the finding stops recurring — a dismissed finding is one you've judged not-a-bug with proof.
-4. **One root cause often resolves siblings.** Findings with the same failing step usually share a cause — fix it once, then re-check the other open findings before deep-diving them.
+3. **Confirm.** `npx ripplo replay <runId>` re-drives this exact trail (same base state, same actions, same params) against the app. A clean run means resolved. If you fixed a **test gap** (edited `.ripplo/`), replay may report the model changed — that's expected, confirm with `npx ripplo lint` and `npx ripplo run <affected>` instead. The background explorer also re-confirms by signature dedup, so a real fix stops recurring.
+4. **Resolve.** Once confirmed, mark the finding resolved (or dismissed, if the evidence proves the app behavior is intended) in the Issues dashboard.
+5. **One root cause often resolves siblings.** Findings with the same failing step usually share a cause — fix it once, then re-check the other open findings before deep-diving them.
 
 ## Add-vs-weaken guardrail
 
