@@ -22,7 +22,11 @@ Needs the app dev server + `npx ripplo daemon` (run refuses to dispatch otherwis
 
 The CLI prints the failed step, the findings, and `Debug artifacts: .ripplo/debug/<runId>/`. A run takes ~30–60s and re-running tells you nothing new unless you've changed something. Don't pipe `npx ripplo run` through `grep`/`tail`/`head`, and don't re-run to reshape stdout. Only rerun after a fix.
 
-Loop: read findings + behavior stream → form a specific hypothesis (cite an event) → make one targeted change → re-run once to verify.
+Loop: explain the run → form a specific hypothesis (cite an event) → make one targeted change → re-run once to verify.
+
+### Start with explain
+
+`npx ripplo explain <runId>` is the first move on any failed run — it reads `behavior.jsonl` back to you instead of making you grep it. For each failing check, grouped by step: the check that failed, the expected vs actual values for a backend mismatch, where a page rule was learned from (and a nudge when it fired in a different flow than it was learned in), the network/console/span events around the failure, and the exact `snapshot --at` for the failing frame. The runId is in the run output (`Debug artifacts: .ripplo/debug/<runId>/`); a local run needs no `pull`. Drop to the raw stream below only when you need detail `explain` didn't surface.
 
 ### The behavior stream
 
@@ -30,6 +34,7 @@ One file per run: `.ripplo/debug/<runId>/behavior.jsonl` — a sorted causal str
 
 - `action` — a test step that ran (`click`/`fill`/`goto`/…) with its target.
 - `assertion` — a `.expect(...)` check, with `outcome: "passed" | "failed"`.
+- `finding` — a backend/state mismatch or crash, with `subject`, `expected`, `actual` (surfaced by `explain`).
 - `rrweb` — DOM snapshots/mutations (what the page actually showed).
 - `network` — fetch/xhr responses (method, url, status).
 - `console` / `error` — page console + uncaught page errors.
