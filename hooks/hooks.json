@@ -25,11 +25,24 @@
           {
             "type": "command",
             "command": "npx ripplo hook track-skill-prompt"
+          },
+          {
+            "type": "command",
+            "command": "npx ripplo hook tasks-reminder"
           }
         ]
       }
     ],
     "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "npx ripplo hook tasks-reminder-tool"
+          }
+        ]
+      },
       {
         "matcher": "Edit|Write",
         "hooks": [

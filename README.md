@@ -33,15 +33,15 @@ The plugin treats `src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, and `c
 
 ## Skills
 
-| Skill              | Description                                                    |
-| ------------------ | -------------------------------------------------------------- |
-| `/ripplo:setup`    | One-time onboarding: auth, scaffold, engine adapter, first run |
-| `/ripplo:start`    | Bring up the dev server + daemon for the dev session           |
-| `/ripplo:discover` | Crawl your codebase to map flows and plan test coverage        |
-| `/ripplo:create`   | Create a new test spec                                         |
-| `/ripplo:run`      | Run tests, diagnose failures, manage Testing Scope, file bugs  |
-| `/ripplo:fuzz`     | Triage findings from the background explorer                   |
-| `/ripplo:iterate`  | Act on replay feedback with snapshot-verified visual fixes     |
+| Skill              | Description                                                        |
+| ------------------ | ------------------------------------------------------------------ |
+| `/ripplo:setup`    | One-time onboarding: auth, scaffold, engine adapter, first run     |
+| `/ripplo:start`    | Bring up the dev server + daemon for the dev session               |
+| `/ripplo:discover` | Crawl your codebase to map flows and plan test coverage            |
+| `/ripplo:create`   | Create a new test spec                                             |
+| `/ripplo:run`      | Run tests, diagnose failures, manage Testing Scope, file bugs      |
+| `/ripplo:fuzz`     | Triage findings from the background explorer                       |
+| `/ripplo:tasks`    | Pick up tasks anchored on a replay frame, prove the fix with a run |
 
 ## Testing Scope
 
