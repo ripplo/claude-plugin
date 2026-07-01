@@ -98,10 +98,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "npx ripplo hook pre-bash-hooks-pause-gate"
-          },
-          {
-            "type": "command",
             "command": "npx ripplo hook pre-bash-run-gate"
           }
         ]
