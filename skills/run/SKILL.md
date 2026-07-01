@@ -59,6 +59,8 @@ npx ripplo snapshot <runId> --offset <ms>         # ms from the start of the rec
 
 Grep the failing event's `"timestamp"`, then snapshot at it — the jsonl says why, the PNG shows what it looked like. `--offset` brackets early-load frames without epoch arithmetic (`--offset 0`, `--offset 100`, `--offset 250`).
 
+Alongside the PNG, `snapshot` writes `snapshot-<ms>ms.html` — the same frame's DOM with every element tagged `data-rrweb-id` and carrying its real attributes/roles. Grep it for an element's class or text to read the real ARIA role/name (locator debugging) or its rrweb id. Prefer this over hand-reading `rrweb` events in the stream.
+
 ### When a static frame isn't enough — teleport into a live app
 
 `snapshot` is a dead PNG. When you need to actually poke the app from the failing point — open a dropdown, watch a live request, try a different input — hand the user a live browser seeded with the run up to that step:
@@ -98,7 +100,7 @@ Multiple failures: pick the most upstream one (world/seed or shared-entity over 
 
 ### Common root causes
 
-- **Wrong locator** — element not found. Check the `rrweb` DOM around the step; re-read the component source for the real ARIA role/name.
+- **Wrong locator** — element not found. Snapshot the step's frame and grep the `snapshot-<ms>ms.html` for the real ARIA role/name; re-read the component source to confirm.
 - **Race** — the action ran before the page was ready. Add a `visible(...)` predicate to the prior step's `.expect(...)`.
 - **Backend mismatch** — an `Entity.created/updated/deleted` didn't match. The finding names the entity/field and expected-vs-actual:
   - **wrong-value / missing-row / unexpected-row** → the app's state didn't reach what the test declared: app dropped/mis-wrote the value (check `network`/`span`), or the assertion expects the wrong value.
