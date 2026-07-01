@@ -9,7 +9,7 @@ Flow: **user logs in once → run `npx ripplo init` → start `npx ripplo daemon
 
 Most users have never used Ripplo. Narrate in plain language and explain why before asking for input or editing files. Avoid internal terms ("engine", "adapter", "entity", "world", "lockfile") in user-facing questions until you've defined them. Orientation up front: "Ripplo runs end-to-end browser tests against your app. Setup will log you in, scaffold a `.ripplo/` folder for workflow definitions, add a small adapter to your backend so tests can seed data and verify results, and run a first test to confirm everything works."
 
-**Already-set-up repos:** if `.ripplo/workflows/` exists, skip step 2 (init) and step 7 (first run), but still satisfy steps 1 and 3. Run `npx ripplo doctor` first and fix each failing check using the matching step — a rejected token or missing daemon still needs fixing.
+**Already-set-up repos:** if `.ripplo/workflows/` exists, skip step 2 (init) and step 8 (first run), but still satisfy steps 1, 3, and 5. Run `npx ripplo doctor` first and fix each failing check using the matching step — a rejected token or missing daemon still needs fixing.
 
 ## 1. Authenticate
 
@@ -47,7 +47,7 @@ Init scaffolds `.ripplo/`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPP
 
 ## 3. Start the daemon
 
-`npx ripplo daemon` is the long-running local test executor; it must stay alive for the dev session. Spawn via `Bash` with `run_in_background`, `cwd` = the directory containing `.ripplo/` (workspace root in monorepos). Tell the user it runs their tests locally and to leave it running. The app dev server is a separate process — make sure it's also up. Steps 6–7 depend on the daemon.
+`npx ripplo daemon` is the long-running local test executor; it must stay alive for the dev session. Spawn via `Bash` with `run_in_background`, `cwd` = the directory containing `.ripplo/` (workspace root in monorepos). Tell the user it runs their tests locally and to leave it running. The app dev server is a separate process — make sure it's also up. Steps 7–8 depend on the daemon.
 
 ## 4. Mount the engine adapter
 
@@ -91,7 +91,29 @@ NODE_OPTIONS="--import @ripplo/instrument" next dev
 
 Frameworks with a register hook (Next.js `instrumentation.ts`) can call `register` from `@ripplo/instrument/register` instead. The preload is dormant when no daemon is running — safe to leave permanently. Restart the dev server after adding it.
 
-## 5. Install the pre-commit hook
+## 5. Signal when your app is ready
+
+Ripplo waits for your app to say it's interactive before it starts checking anything on a page. Without that signal it can only guess when the app has loaded, and a slow cold boot — especially with several runs going at once — eats the check budget, so tests time out on elements that were about to appear. Your app owns this signal.
+
+Before editing, tell the user: "I'm adding one line so the test runner waits until your app has actually finished loading before it checks the page, instead of guessing."
+
+Call `ready()` once the first real screen has rendered — not while a loading skeleton is up:
+
+```ts
+import { ready } from "@ripplo/testing";
+
+ready(); // at your app's genuine "interactive" point
+```
+
+Put it at the app's true ready point for your framework:
+
+- **TanStack Router / React Router** — after the first route resolves with its data: `router.subscribe("onResolved", () => ready())`.
+- **Next.js** — in a root layout effect once the initial data has rendered.
+- **Plain SPA** — right after the top-level data load settles and you render real content.
+
+Gate the call behind the same build-time testing flag your app already uses (`VITE_ENABLE_RIPPLO_TESTING`, `NEXT_PUBLIC_ENABLE_RIPPLO_TESTING`, …) so it's a no-op in production. This is **required**: if `ready()` never fires within 30s of a page load, every run fails with `appNotReady`.
+
+## 6. Install the pre-commit hook
 
 ```sh
 #!/bin/sh
@@ -105,11 +127,11 @@ fi
 
 With husky/lefthook/simple-git-hooks, gate the same check on staged `.ripplo/**/*.ts`.
 
-## 6. Verify
+## 7. Verify
 
 `npx ripplo doctor` — resolve every issue before moving on. Key checks: dev server reachable at `RIPPLO_APP_URL`, dev session live. Briefly tell the user what doctor confirmed.
 
-## 7. First workflow (first-time setup only)
+## 8. First workflow (first-time setup only)
 
 Skip if `.ripplo/workflows/` already has workflows. Otherwise setup isn't complete until **one run passes** — the web onboarding gates its Continue button on a run with `status=completed` and `hasFailed=false`. Tell the user up front you'll write and run a tiny first workflow to unblock it.
 
@@ -121,6 +143,7 @@ Skip if `.ripplo/workflows/` already has workflows. Otherwise setup isn't comple
 
 - Never bypass webhook signature checking or hardcode the secret.
 - Never hardcode `enabled: true`.
+- Every app must call `ready()` from `@ripplo/testing` when it's interactive — runs fail with `appNotReady` otherwise. Signal after real content renders, not on a loading skeleton, and gate it behind the build-time testing flag.
 - Adapter mount path must match the `RIPPLO_ENGINE_URL` suffix — mismatches silently fail.
 - The daemon runs from the directory containing `.ripplo/` — set Bash `cwd` accordingly in monorepos.
 - **Worktrees are self-contained** (own DevSession, scope, debug artifacts), but env files don't carry over and dev-server ports collide between siblings. In a fresh worktree: copy the env file from main (or symlink a shared one), pick a distinct port, and update both `RIPPLO_APP_URL` and `RIPPLO_ENGINE_URL` to it. `npx ripplo doctor` flags missing env files.
