@@ -7,6 +7,17 @@ description: "Pick up Ripplo tasks — open-ended requests users anchor to a rep
 
 A task is an open-ended request anchored to a moment in a run. Users explore their app across space and time — the replay makes every frame, element, and workflow inspectable — and file a request on any facet of what they see: fix a visual bug, change a behavior, extend a workflow, write a new one, or ask how something works. The anchor (a run, a frame, usually an element) is the shared context; the comment thread is the conversation.
 
+## The task lifecycle — what needs your attention, and when you can stop
+
+A task moves through four states. Know which state means "act" and which means "hands off," because two mechanisms enforce this for you: the task watcher (armed by `/ripplo:start`) wakes you the moment a task needs attention, and the done-check blocks you from ending the session while any task is still open.
+
+- **open** — needs you. New tasks, reopened tasks, and user replies on an open task all land here. The watcher surfaces each one live, even while you sit idle. Pick it up.
+- **reopened** — a task you resolved that the user sent back. This is not a fresh unrelated request — your earlier resolution didn't hold. Revisit that fix, find what you missed, and prove it again. The watcher flags reopens distinctly for exactly this reason.
+- **needs clarification** — waiting on the user, not on you. You set this with `clarify` when you're genuinely blocked. It leaves your queue until the user replies, and their reply flips it back to **open** and wakes you. Don't sit on a needs-clarification task.
+- **resolved / dismissed** — done. Out of the queue, out of the done-check. If the user resolves or dismisses a task while you're working it, it is no longer relevant — **stop working it.** You won't get a wake for this (that would be noise) — you find out at your next stop, where the done-check no longer lists it. Don't keep grinding a task that's left the open set.
+
+While hooks are active, you cannot end the session with a task still open — the done-check blocks and lists each one. Clear every open task exactly one way: **resolve** it with proof, **clarify** it if you need the user, or **dismiss** it if it's not actionable. Silence is never how a task leaves the queue. (The block is a hook, so it only fires while hooks are on. `npx ripplo hooks pause` turns them off — that's for when the user is working on something unrelated and the Ripplo gates are just noise, not a way to slip past an open task you should be handling.)
+
 ## Understand the request, then route it
 
 1. **See what they saw.** `npx ripplo tasks show <id>` prints the full thread, each anchor's element (tag, role, testid, text, best-effort CSS selector), and the exact `snapshot` command for its frame. The anchor tells you the moment; the thread tells you the ask. **The precomputed element details are a starting hint, not ground truth** — run the snapshot, Read the PNG, and validate every assumption (which element, what state, what's on top of it) against the rendered frame and the `data-rrweb-id`-tagged DOM in the `snapshot-<ms>ms.html` it writes before you act. Eliminate the ambiguity; don't act on the label alone.
@@ -47,7 +58,7 @@ New scaffolding (a predicate, an entity + engine impl, a world) is in-scope work
 
 For "this looks wrong at this frame" tasks, run a closed loop and Read every PNG:
 
-1. **See the baseline.** `npx ripplo snapshot <runId> --offset <frameMs>` (the frame offset the task is anchored to — `show` prints the exact command) reproduces the flagged frame; Read the PNG and confirm it shows the complaint. Cloud run not on disk → `npx ripplo pull <runId>` first. Baseline doesn't show the complaint? Stop and ask — you may have the wrong frame or element.
+1. **See the baseline.** `npx ripplo snapshot <runId> --offset <frameMs>` (the frame offset the task is anchored to — `show` prints the exact command) reproduces the flagged frame; Read the PNG and confirm it shows the complaint. `snapshot` auto-pulls the run's behavior stream on demand — runs aren't kept on local disk, so this fetch happens for local and cloud runs alike. Baseline doesn't show the complaint? Stop and ask — you may have the wrong frame or element.
 2. **Find the code** from the anchored element identity (tag, role/name, testid) and the screenshot. Trust the screenshot over a CSS-selector hint.
 3. **Make one targeted change.** Don't stack changes across loops.
 4. **Re-run** the workflow that produced the frame (`npx ripplo run <test-id>`); explore findings re-drive with `npx ripplo replay <runId>` (prints a fresh `replay-…` id — snapshot _that_).

@@ -26,11 +26,11 @@ Loop: explain the run → form a specific hypothesis (cite an event) → make on
 
 ### Start with explain
 
-`npx ripplo explain <runId>` is the first move on any failed run — it reads `behavior.jsonl` back to you instead of making you grep it. For each failing check, grouped by step: the check that failed, the expected vs actual values for a backend mismatch, where a page rule was learned from (and a nudge when it fired in a different flow than it was learned in), the network/console/span events around the failure, and the exact `snapshot --at` for the failing frame. The runId is in the run output (`Debug artifacts: .ripplo/debug/<runId>/`); a local run needs no `pull`. Drop to the raw stream below only when you need detail `explain` didn't surface.
+`npx ripplo explain <runId>` is the first move on any failed run — it reads `behavior.jsonl` back to you instead of making you grep it. For each failing check, grouped by step: the check that failed, the expected vs actual values for a backend mismatch, where a page rule was learned from (and a nudge when it fired in a different flow than it was learned in), the network/console/span events around the failure, and the exact `snapshot --at` for the failing frame. The runId is in the run output (`Debug artifacts: .ripplo/debug/<runId>/`); `explain` auto-pulls the stream on demand — runs aren't kept on local disk, so this happens for local and cloud runs alike. Drop to the raw stream below only when you need detail `explain` didn't surface.
 
 ### The behavior stream
 
-One file per run: `.ripplo/debug/<runId>/behavior.jsonl` — a sorted causal stream, one event per line, discriminated by `kind`. If that file isn't on disk — a cloud run, or the folder was cleaned up — pull it from the server first: `npx ripplo pull <runId>` writes it to `.ripplo/debug/<runId>/behavior.jsonl`. Events:
+One file per run: `.ripplo/debug/<runId>/behavior.jsonl` — a sorted causal stream, one event per line, discriminated by `kind`. `explain`, `snapshot`, and `tasks show` auto-pull this file when it's missing (a cloud run, or the folder was cleaned up); to fetch it on its own, `npx ripplo pull <runId>`. Events:
 
 - `action` — a test step that ran (`click`/`fill`/`goto`/…) with its target.
 - `assertion` — a `.expect(...)` check, with `outcome: "passed" | "failed"`.
