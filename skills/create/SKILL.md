@@ -115,6 +115,8 @@ Every mutation step carries an entity assertion in its `.expect(...)`. After eac
 
 Consistency timing is automatic: `consistency: "eventual"` (or a `changed()` baseline) tolerates propagation lag; the default `strict` fails fast on a wrong intermediate value.
 
+Pair every backend assertion with the user-visible outcome. A mutation step's `.expect(...)` asserts what the user now sees — the new item rendered in the list, the updated value on screen — never just a proxy like a closed dialog or a toast. A green toast over a dropped write is exactly the bug class backend assertions catch, and a backend row the user can't see is the inverse.
+
 ## Adding an entity
 
 A seeded or asserted row needs (a) a definition and (b) an impl; TS flags a missing impl.
@@ -151,6 +153,7 @@ task: {
 - **`seed`** creates one row from `fields`, returns `{ row, session }` (`session` only for identity entities like `user`/`session`). Return the exact field shape the entity declares.
 - **`read`** returns all this run's rows. Scope every query by the run (`runPrefix(runId)` / run-scoped id) so Ripplo only sees this run's data.
 - Entities live in `.ripplo/`, impls in the app's engine funnel — never declare `entity(...)` in app code.
+- **Adding an entity obligates every flow that writes it.** Once an entity has a `read` impl, Ripplo checks its rows after every step — including rows the app creates as a side effect (creating a dataset that auto-creates default columns, for example). Before wiring the impl, search the app for every mutation that writes this table and declare those effects with `Entity.created(...)` in the affected workflows. An undeclared side-effect row surfaces as an unexpected-row finding with the row's fields ready to paste into a declaration.
 
 ## Adding a world
 

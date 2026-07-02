@@ -26,9 +26,19 @@ Either way the daemon still owns the local dev session, hooks, and IPC — only 
 6. Dev session green: run `npx ripplo tasks list` once to surface the current backlog, then pick up anything open.
 7. Arm the task watcher so tasks filed later wake you without a re-prompt: call the `Monitor` tool with `command: "npx ripplo tasks watch"`, `persistent: true`, `description: "new ripplo tasks"`, `cwd` = the directory containing `.ripplo/`. Each event is a new task or a user reply — pick it up, delegating to a subagent when the work is cleanly delegable. Stop it with `TaskStop` if the user asks.
 
+## Daemon lifecycle
+
+`npx ripplo daemon` takes a lifecycle action: `start` (default, the long-running process), `stop`, `restart`, and `status`.
+
+- **`npx ripplo daemon status`** — quick foreground check: running or not, version, active/queued runs, explorer state. Use it before assuming anything about the daemon.
+- **`npx ripplo daemon stop`** — signals the running daemon and waits up to 10s for a clean exit. Use it when a daemon you don't own is holding the dev session (a stale one from another terminal, or a `--executor cloud` daemon when you need local), or before starting one with different flags.
+- **`npx ripplo daemon restart`** — stop then start in one foreground process. This is for a human's terminal. As an agent, don't use it — the start half runs forever and your Bash call never returns. Instead: `npx ripplo daemon stop` (foreground, returns quickly), then spawn `npx ripplo daemon` with `run_in_background` as usual.
+
+When to restart the daemon: after `npx ripplo update` or a CLI rebuild (the daemon keeps running old code until restarted), when switching executor (local ↔ cloud), or when `daemon status` says running but runs aren't dispatching. A daemon that refuses to start because another holds the lock prints the holder's pid — stop that one first, don't fight the lock.
+
 ## Rules
 
 - **Spawn as harness-managed background shells, never `&`.** Use `Bash` with `run_in_background` for the dev server and daemon, and the `Monitor` tool for the watcher. Never background with `&`, `nohup`, or `disown` — those detach the process from the harness, so you lose the handle and can't read its log or stop it.
-- **Idempotent.** Skip any spawn whose check is already green. Never start a second daemon for the same project (they fight over the dev session); never restart an already-running dev server (you may interrupt the user's work). One watcher per session — don't arm a second.
+- **Idempotent.** Skip any spawn whose check is already green. Never start a second daemon for the same project — the second exits because the first holds the dev session. Need the session back (wrong executor, stale version)? `npx ripplo daemon stop` first. Never restart an already-running dev server (you may interrupt the user's work). One watcher per session — don't arm a second.
 - **Right cwd.** The daemon and watcher run from the directory containing `.ripplo/`; the dev server's cwd depends on its script.
 - **Don't "fix" the app dev server beyond starting it.** If it errors (port in use, missing env, build failure), surface the error and stop — that's the user's environment to debug.

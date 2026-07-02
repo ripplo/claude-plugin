@@ -79,7 +79,16 @@ app.use(
 
 **Bind `enabled` to the env flag — never hardcode `true`.** The mount path must match the `RIPPLO_ENGINE_URL` path.
 
-### Preload `@ripplo/instrument`
+### Seeding a signed-in session
+
+Most workflows need a signed-in user, and this is the steepest part of setup: the `user`/`session` seed impl must produce a browser session your app accepts as authentic. The contract is small — the seed returns `{ row, session }` where `session` is `{ cookies, origins }` (Playwright storage-state shape) — but filling it means reverse-engineering your app's auth. Work through this checklist in order, reading the app's own auth code at each step rather than guessing:
+
+1. **Find where the app verifies a session.** The middleware or helper that turns a request into a user (`getUser`, `auth()`, a session middleware). Everything below comes from reading it.
+2. **Token or session row?** JWT-cookie apps (NextAuth JWT strategy, custom JWT) need the seed to mint a token with the app's signing secret. Session-table apps need the seed to insert a session row and set its id as the cookie.
+3. **Exact cookie names and attributes.** Copy them from the app's config — NextAuth uses different names with and without HTTPS (`next-auth.session-token` vs `__Secure-...`), and a wrong name fails silently.
+4. **Identity matching.** Whatever claim the verifier reads (`token.sub`, `session.userId`) must equal the seeded user's id — trace how the app's own login sets it.
+5. **Guards on a fresh session.** MFA flags, email verification, onboarding state, feature gates — seed the user in a state that passes every one, or the first navigation redirects and every test fails on the wrong page.
+6. **Verify seeded assumptions against the real database.** Roles, groups, and permissions from a seed script may not match this environment (group 5 is admin in one database and a no-permission user in another). A permissions gap shows up as flaky 403s and half-rendered pages, not a clear failure — query the actual rows before trusting a green run.
 
 Add the preload to the backend's dev script so runs capture backend spans alongside browser actions:
 
