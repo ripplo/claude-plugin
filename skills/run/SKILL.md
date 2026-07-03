@@ -5,6 +5,8 @@ description: "Run Ripplo e2e tests, diagnose failures, manage Testing Scope, and
 
 # Run Ripplo Tests
 
+Read `../MODEL.md` (relative to this skill's base directory) first if you haven't this session — the one-page mental model this skill assumes: workflows declare state, facts carry across workflows, and lint/run/explorer each enforce a layer of it.
+
 ```sh
 npx ripplo run                          # auto-scopes dirty workflows + runs scope (default)
 npx ripplo run <workflow-slug> ...      # one workflow — runs all its enumerated tests
@@ -26,7 +28,7 @@ Loop: explain the run → form a specific hypothesis (cite an event) → make on
 
 ### Start with explain
 
-`npx ripplo explain <runId>` is the first move on any failed run — it reads `behavior.jsonl` back to you instead of making you grep it. For each failing check, grouped by step: the check that failed, the expected vs actual values for a backend mismatch, where a page rule was learned from (and a nudge when it fired in a different flow than it was learned in), the network/console/span events around the failure, and the exact `snapshot --at` for the failing frame. The runId is in the run output (`Debug artifacts: .ripplo/debug/<runId>/`); `explain` auto-pulls the stream on demand — runs aren't kept on local disk, so this happens for local and cloud runs alike. Drop to the raw stream below only when you need detail `explain` didn't surface.
+`npx ripplo explain <runId>` is the first move on any failed run — it reads `behavior.jsonl` back to you instead of making you grep it. For each failing check, grouped by step: the check that failed, the expected vs actual values for a backend mismatch, where a fact was learned from (and a nudge when it fired in a different flow than it was learned in), the network/console/span events around the failure, and the exact `snapshot --at` for the failing frame. The runId is in the run output (`Debug artifacts: .ripplo/debug/<runId>/`); `explain` auto-pulls the stream on demand — runs aren't kept on local disk, so this happens for local and cloud runs alike. Drop to the raw stream below only when you need detail `explain` didn't surface.
 
 ### The behavior stream
 
@@ -108,7 +110,7 @@ Multiple failures: pick the most upstream one (world/seed or shared-entity over 
   - Consistency flags: `strict` means the field must match immediately after the step, `eventual` means it may lag briefly and Ripplo waits for it. A wrong intermediate value under `strict` fails fast by design — app bug, not timing.
   - Server-chosen value → assert `changed()` instead of pinning a literal.
   - Genuine flicker-through-wrong-values (rare) → the field may need `consistency: "eventual"`.
-- **Page rule violation** — "A page rule learned from <workflow> ... never held here", naming the originating workflow. Ripplo generalizes assertions like "at URL X, heading Y is visible" into page rules enforced across tests. If your workflow legitimately reaches that URL in a different state, make the originating assertion conditional: `when(branch("no items yet").if(count(Entity).is(0)).expect(visible(heading("No items"))))`.
+- **Fact violation** — "A fact learned from <workflow> ... never held here", naming the originating workflow. Ripplo generalizes assertions like "at URL X, heading Y is visible" into facts enforced across tests. If your workflow legitimately reaches that URL in a different state, make the originating assertion conditional: `when(branch("no items yet").if(count(Entity).is(0)).expect(visible(heading("No items"))))`.
 - **Duplicate locator (strict mode)** — `resolved to 2 elements`. Scope the target: `inside(main(), button("New"))`, `inside(row(schedule.name), button("Delete"))`. Container rows usually need an `aria-label` in the app — add it; don't fall back to `testId`.
 - **World / seed wrong** — the starting state isn't what the workflow assumes. Check the engine impl's `seed`/`read`, not the workflow.
 - **Seed exists but the action does nothing** — the click runs, but no mutation lands and the step made no network request. The row is there, yet the button is dead because the app needs more state first (a booking that can be cancelled, a confirmed status, a toggle that unlocks the action). Snapshot the frame (`npx ripplo snapshot <runId> --at <timestamp>`) to see the disabled or no-op control, then add the missing state to the seed in the engine impl. Working out which state the handler needs is usually the hard part, not the test.
@@ -202,5 +204,3 @@ npx ripplo scope remove <scope-item-id> [<id>...]    # remove (variadic)
 - Mid-task discovery — a new flow surfaces, write its workflow.
 - Drift nudge — user-facing code changed without a matching workflow; add the missing flow or revert the change.
 - User-added free-text item — write the workflow and `scope link` it.
-  </content>
-  </invoke>

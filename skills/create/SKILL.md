@@ -5,6 +5,8 @@ description: "Create a new Ripplo e2e workflow: model the state it touches as en
 
 # Create Ripplo Workflow
 
+Read `../MODEL.md` (relative to this skill's base directory) first if you haven't this session — the one-page mental model this skill assumes: workflows declare state, facts carry across workflows, and lint/run/explorer each enforce a layer of it.
+
 If the flow doesn't work yet, fix the app first or in lockstep — never weaken the workflow to paper over an app bug. Confirmed real app bug while authoring? File it with `npx ripplo report-bug` (kind tree, bar, and fields in `/ripplo:run`). New scaffolding the workflow needs (a new entity + engine impl, a new world builder) is in-scope work, not a follow-up.
 
 Backend verification is automatic: declare expected backend state inline (`Entity.created/updated/deleted`) and Ripplo checks your app's actual state against what the test declared after each step.
@@ -15,7 +17,7 @@ Needs the app dev server + `npx ripplo daemon`. Run `npx ripplo doctor`; if miss
 
 ## The model (read before writing)
 
-This skill covers the common path. The **full primitive catalog** — every action, locator, predicate, field axis, value-space, and the relational `within`/`where` assertions — is at `node_modules/@ripplo/testing/DSL.md`; read it for less-common primitives (`select`/`upload`/`check`, singleton state, optional fields, relational selection). Skim `.ripplo/{entities,worlds,tests}/` for this project's real patterns. Three layers:
+This skill covers the common path. The **full primitive catalog** — every action, locator, predicate, field axis, value-space, and the relational `within`/`where` assertions — is at `node_modules/@ripplo/testing/DSL.md`; read it for less-common primitives (`select`/`upload`/`check`, singleton state, optional fields, relational selection). Skim `.ripplo/{entities,worlds,workflows}/` for this project's real patterns. Three layers:
 
 - **Entities** (`.ripplo/entities/`) — the state model: `entity("name", { fields, identity, source })`. `source` is where the state persists: `"backend"` (default — server-side state; impl in the server engine) vs `"client"` (browser-only state: localStorage/IndexedDB/in-memory; impl in the client engine via `mountClientEngine(ripplo, impls, { enabled })`, gated by a build-time flag mirroring the server's — Vite: `VITE_ENABLE_RIPPLO_TESTING`; Next.js: `NEXT_PUBLIC_ENABLE_RIPPLO_TESTING`). Unsure → backend; a browser cache of server-owned data is backend. A field is a free, seedable state dimension with a value-space (`field({ value: v.email() })`). A foreign key is just `field({ value: v.id() })` wired to a parent's id at setup. Derived values (`slug = slugify(name)`) and server-defaulted values (`createdAt`) are **not fields** — drop them. `{ optional: true }` = nullable.
 - **Worlds** (`.ripplo/worlds/`) — pure builder functions returning a flat record of entity handles, composed from other worlds. A world must return every handle it creates.
@@ -90,11 +92,11 @@ Branch coverage: outcome depends on state (empty vs populated, first vs last ite
 when(
   branch("deleting the last project")
     .if(count(Project).is(0))
-    .expect(url.is`/connect`),
+    .expect(url.path.is`/connect`),
   branch("deleting the first project, onboarding pending")
     .if(and(count(Project).is(1), onboardingDismissed.is(false)))
-    .expect(url.is`/onboarding?projectId=${other.id}`),
-  branch("deleting one of several projects").expect(url.is`/projects`),
+    .expect(url.path.is`/onboarding`, url.query.is({ projectId: other.id })),
+  branch("deleting one of several projects").expect(url.path.is`/projects`),
 );
 ```
 

@@ -26,7 +26,7 @@ Four hooks wire into the agent's workflow so tests are load-bearing, not advisor
 
 - **UserPromptSubmit** nudges when user-facing code has drifted from `.ripplo/workflows` and surfaces the flows in scope during plan mode.
 - **PreToolUse / ExitPlanMode** blocks plan exit if the plan touches user-facing code but no matching `.ripplo/workflows` flow is planned.
-- **PostToolUse (Edit/Write)** lints the DSL on `.ripplo/**` edits and flags user-facing edits with no matching test.
+- **PostToolUse (Edit/Write)** lints the DSL on `.ripplo/**` edits and flags user-facing edits with no matching workflow.
 - **Stop** lints, runs scoped and changed tests, and blocks on drift — user-facing changes without a matching `.ripplo/workflows` update.
 
 The plugin treats `src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, and `components/**` as user-facing, and ignores generated and vendor output.
@@ -38,14 +38,14 @@ The plugin treats `src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, and `c
 | `/ripplo:setup`    | One-time onboarding: auth, scaffold, engine adapter, first run     |
 | `/ripplo:start`    | Bring up the dev server + daemon for the dev session               |
 | `/ripplo:discover` | Crawl your codebase to map flows and plan test coverage            |
-| `/ripplo:create`   | Create a new test spec                                             |
+| `/ripplo:create`   | Create a new workflow                                              |
 | `/ripplo:run`      | Run tests, diagnose failures, manage Testing Scope, file bugs      |
 | `/ripplo:fuzz`     | Triage findings from the background explorer                       |
 | `/ripplo:tasks`    | Pick up tasks anchored on a replay frame, prove the fix with a run |
 
 ## Testing Scope
 
-Scope is the agent's working memory for what user flows the current session is on the hook for. It lives in the dev-session DB (no local file) and is mutated only via `npx ripplo scope add|link|remove`. Agent scope items must reference an existing test (stub or implemented); free-text intents come from the user via the dashboard, and the agent's job is to stub a matching test and `scope link` it. The user sees live scope in Developer Mode → Testing Scope and can pause hooks entirely from there.
+Scope is the agent's working memory for what user flows the current session is on the hook for. It lives in the dev-session DB (no local file) and is mutated only via `npx ripplo scope add|link|remove`. Agent scope items must reference an existing workflow (stub or implemented); free-text intents come from the user via the dashboard, and the agent's job is to stub a matching workflow and `scope link` it. The user sees live scope in Developer Mode → Testing Scope and can pause hooks entirely from there.
 
 ## Lockfile
 

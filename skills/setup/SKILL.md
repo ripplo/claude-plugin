@@ -146,7 +146,7 @@ Skip if `.ripplo/workflows/` already has workflows. Otherwise setup isn't comple
 
 - Hand off to `/ripplo:create` — it owns authoring and running.
 - Pick a trivial smoke workflow (load the entry route, assert a top-level element). If the entry surface is non-obvious, ask via `AskUserQuestion`.
-- `npx ripplo run <test-id>`. If it fails, debug via `.ripplo/debug/<runId>/behavior.jsonl` — don't leave the user staring at a red first run.
+- `npx ripplo run <workflow-slug>[/<test-slug>]`. If it fails, debug via `.ripplo/debug/<runId>/behavior.jsonl` — don't leave the user staring at a red first run.
 
 ## Rules
 

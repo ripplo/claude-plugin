@@ -5,6 +5,8 @@ description: "Pick up Ripplo tasks — open-ended requests users anchor to a rep
 
 # Pick up Ripplo tasks
 
+Read `../MODEL.md` (relative to this skill's base directory) first if you haven't this session — the one-page mental model this skill assumes: workflows declare state, facts carry across workflows, and lint/run/explorer each enforce a layer of it.
+
 A task is an open-ended request anchored to a moment in a run. Users explore their app across space and time — the replay makes every frame, element, and workflow inspectable — and file a request on any facet of what they see: fix a visual bug, change a behavior, extend a workflow, write a new one, or ask how something works. The anchor (a run, a frame, usually an element) is the shared context; the comment thread is the conversation.
 
 ## The task lifecycle — what needs your attention, and when you can stop
@@ -61,7 +63,7 @@ For "this looks wrong at this frame" tasks, run a closed loop and Read every PNG
 1. **See the baseline.** `npx ripplo snapshot <runId> --offset <frameMs>` (the frame offset the task is anchored to — `show` prints the exact command) reproduces the flagged frame; Read the PNG and confirm it shows the complaint. `snapshot` auto-pulls the run's behavior stream on demand — runs aren't kept on local disk, so this fetch happens for local and cloud runs alike. Baseline doesn't show the complaint? Stop and ask — you may have the wrong frame or element.
 2. **Find the code** from the anchored element identity (tag, role/name, testid) and the screenshot. Trust the screenshot over a CSS-selector hint.
 3. **Make one targeted change.** Don't stack changes across loops.
-4. **Re-run** the workflow that produced the frame (`npx ripplo run <test-id>`); explore findings re-drive with `npx ripplo replay <runId>` (prints a fresh `replay-…` id — snapshot _that_).
+4. **Re-run** the workflow that produced the frame (`npx ripplo run <workflow-slug>[/<test-slug>]`); explore findings re-drive with `npx ripplo replay <runId>` (prints a fresh `replay-…` id — snapshot _that_).
 5. **Snapshot the same phase in the new run and compare.** Timestamps don't carry across runs — relocate by phase. Start at the baseline frame's printed offset and bracket; for precision grep the new behavior.jsonl for the step named in the anchor, take its `"timestamp"`, add the within-step offset, pass via `--at`.
 6. **State plainly whether it's fixed, with the before/after PNGs.** Not fixed → new hypothesis, loop.
 

@@ -9,7 +9,7 @@ Bring the dev environment up so Ripplo dev mode fires: two background processes 
 
 ## Executor: local (default) or cloud
 
-The skill takes one optional argument that picks where runs and exploration trails execute — the browsers and runtime driving your workflows.
+The skill takes one optional argument that picks where runs and exploration paths execute — the browsers and runtime driving your workflows.
 
 - **`/ripplo:start`** (no arg) or **`/ripplo:start local`** → the daemon runs the local executor: workflows run in browsers on this machine. Default.
 - **`/ripplo:start cloud`** → the daemon runs against Ripplo's cloud fleet over a per-session tunnel: workflows run on Ripplo's infra, not your machine. Use when you want runs off your box (heavy suites, a slow laptop, parity with CI).
