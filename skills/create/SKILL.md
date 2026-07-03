@@ -5,8 +5,6 @@ description: "Create a new Ripplo e2e workflow: model the state it touches as en
 
 # Create Ripplo Workflow
 
-Read `../MODEL.md` (relative to this skill's base directory) first if you haven't this session — the one-page mental model this skill assumes: workflows declare state, facts carry across workflows, and lint/run/explorer each enforce a layer of it.
-
 If the flow doesn't work yet, fix the app first or in lockstep — never weaken the workflow to paper over an app bug. Confirmed real app bug while authoring? File it with `npx ripplo report-bug` (kind tree, bar, and fields in `/ripplo:run`). New scaffolding the workflow needs (a new entity + engine impl, a new world builder) is in-scope work, not a follow-up.
 
 Backend verification is automatic: declare expected backend state inline (`Entity.created/updated/deleted`) and Ripplo checks your app's actual state against what the test declared after each step.

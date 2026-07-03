@@ -5,8 +5,6 @@ description: "Run Ripplo e2e tests, diagnose failures, manage Testing Scope, and
 
 # Run Ripplo Tests
 
-Read `../MODEL.md` (relative to this skill's base directory) first if you haven't this session — the one-page mental model this skill assumes: workflows declare state, facts carry across workflows, and lint/run/explorer each enforce a layer of it.
-
 ```sh
 npx ripplo run                          # auto-scopes dirty workflows + runs scope (default)
 npx ripplo run <workflow-slug> ...      # one workflow — runs all its enumerated tests

@@ -5,8 +5,6 @@ description: "Pick up Ripplo tasks — open-ended requests users anchor to a rep
 
 # Pick up Ripplo tasks
 
-Read `../MODEL.md` (relative to this skill's base directory) first if you haven't this session — the one-page mental model this skill assumes: workflows declare state, facts carry across workflows, and lint/run/explorer each enforce a layer of it.
-
 A task is an open-ended request anchored to a moment in a run. Users explore their app across space and time — the replay makes every frame, element, and workflow inspectable — and file a request on any facet of what they see: fix a visual bug, change a behavior, extend a workflow, write a new one, or ask how something works. The anchor (a run, a frame, usually an element) is the shared context; the comment thread is the conversation.
 
 ## The task lifecycle — what needs your attention, and when you can stop

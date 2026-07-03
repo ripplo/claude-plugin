@@ -5,8 +5,6 @@ description: "Triage findings from Ripplo's background explorer — the generati
 
 # Triage Explorer Findings
 
-Read `../MODEL.md` (relative to this skill's base directory) first if you haven't this session — the one-page mental model this skill assumes: workflows declare state, facts carry across workflows, and lint/run/explorer each enforce a layer of it.
-
 The background explorer fuzzes the app: local and cloud workers walk guided random paths over enabled actions, and every failed check becomes a **finding** reported to the server and deduped by signature. Your job is the refine step: confirm each finding, classify it, fix, and verify.
 
 Exploration is toggled from the dev mode bar (the explore popover). If there are no open findings, say so.

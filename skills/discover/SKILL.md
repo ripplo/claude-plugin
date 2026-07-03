@@ -5,8 +5,6 @@ description: "Guided codebase crawl to plan Ripplo workflows: map the app's user
 
 # Ripplo Discover
 
-Read `../MODEL.md` (relative to this skill's base directory) first if you haven't this session — the one-page mental model this skill assumes: workflows declare state, facts carry across workflows, and lint/run/explorer each enforce a layer of it.
-
 Map the app's user-facing surface, model the state behind it, and produce a list of flows worth verifying. Implementation happens in `/ripplo:create`.
 
 ## Prerequisite
