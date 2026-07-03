@@ -33,15 +33,18 @@ For each flow, work out the entities and worlds it needs:
 
 Mechanics live in `/ripplo:create` → "Adding an entity" / "Adding a world."
 
-## Phase 3: Plan the flows
+## Phase 3: Plan the journeys
 
-**Worth testing:** state mutations, multi-step flows, CRUD per entity, dialog flows, inline actions, bulk ops, import/export, role-specific behavior, distinct render states.
+Plan **user journeys**, not per-mutation snippets. A journey is one thing a user sets out to accomplish, traced as the real click path from a natural entry point — usually several mutations ("sign up → create a project → invite a teammate", "find an overdue invoice → edit it → send the reminder"). One journey = one workflow. Later steps consume state earlier steps created, so the starting world stays minimal.
 
-**Skip:** navigation-only clicks, read-only views with no interaction, third-party OAuth redirects.
+Enumerate the journeys first: for each core thing a user comes to the app to do, write the path they'd actually click. Then check coverage against the inventories as a completeness net:
 
-**Target:** CRUD per core entity; role-specific actions if multi-role; empty/conditional states represented.
+- **Every mutation from Phase 1 appears in some journey** — CRUD per core entity, dialog flows, inline actions, bulk ops, import/export, role-specific behavior. An orphan mutation means a missing journey, not a one-click workflow.
+- **Every distinct render state appears** — as a `when` branch where seeded state changes an outcome along a journey's path, or as its own journey when the flow itself differs.
 
-Produce a concrete list — one line per flow, with its starting world and the entity assertion that proves it. Confirm with the user before implementing.
+**Skip:** read-only views with no interaction, third-party OAuth redirects. Navigation is covered inside journeys, not as standalone workflows.
+
+Produce a concrete list — one line per journey, with its entry point, click path, starting world, and the entity assertions that prove it. Confirm with the user before implementing.
 
 ## Phase 4: Implement
 

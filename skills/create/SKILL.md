@@ -21,56 +21,98 @@ This skill covers the common path. The **full primitive catalog** — every acti
 - **Worlds** (`.ripplo/worlds/`) — pure builder functions returning a flat record of entity handles, composed from other worlds. A world must return every handle it creates.
 - **Workflows** (`.ripplo/workflows/`) — `workflow("Intent", () => ({ given, steps }))`. `given` is the setup (one array of all handles); `steps` is the act + assert. The compiler enumerates one concrete test per `when` branch at `ripplo compile`/`lint` time — a workflow with no when blocks compiles to a single test named "main". Runs are per test.
 
+A workflow is a **user journey**: one thing the user set out to accomplish, traced as the real click path from a natural entry point, however many steps and mutations that takes. "Set up my project's first task board" is one workflow — navigate in, create the board, add a task, verify it stuck. A single button click with one assertion is almost never a whole journey. A different intent ("also delete the project") is a separate workflow.
+
 ## Procedure
 
-1. **Name the regression in one sentence** ("user clicks Save, UI shows success, but the DB write silently dropped"). That sentence dictates the assertions — if the workflow would pass against that bug, it's not deep enough.
-2. **Trace the mutation end-to-end** (component → resolver/route → DB). The entity to assert and the world to seed fall out of the trace.
-3. **Pick or build the world.** Browse `.ripplo/worlds/index.ts`; reuse a builder if one fits, else compose a new one on an existing base — don't re-seed auth/org/project.
-4. **Ensure the entities exist.** Every seeded row and asserted state needs an `entity(...)` in `.ripplo/entities/` and a matching engine impl (TS errors if missing).
-5. **Read the real component/route source** for ARIA roles, button text, form fields. **Never fabricate locators.** If the app lacks accessible names, add them to the app — don't fall back to `testId()`.
-6. **Write the workflow** (the intent string is the identity, not the filename):
+1. **Name the user intent in one sentence** ("a user sets up their first task and marks it done"). That sentence is the workflow — everything the user does to accomplish it belongs in this one workflow's steps.
+2. **Walk the click path like a user.** Start at a natural entry point (dashboard, root, the page a real user lands on) and navigate through nav, lists, and menus to the target. `goto` a deep URL only when the journey genuinely starts from a link — an email invite, a shared URL. Navigation steps are free coverage, and a path a user can't click is a bug worth catching.
+3. **Name the regression each mutation would catch** ("user clicks Save, UI shows success, but the DB write silently dropped"). Those sentences dictate the assertions — if a step would pass against its bug, it's not deep enough. Trace each mutation end-to-end (component → resolver/route → DB); the entities to assert fall out of the trace.
+4. **Sweep the path for branches.** For every step, ask: what seeded state would change this step's outcome? Empty vs populated list, first vs last item, a pending state, a role difference. Each answer becomes a named `when` branch or gets explicitly ruled out — write the list down before writing code. A journey with zero whens usually means the sweep was skipped, not that the path has no state-dependent outcomes.
+5. **Pick or build the world — seed only what the path can't reach.** Earlier journey steps produce the state later steps need, so prefer creating state through the UI within the journey over seeding it. Browse `.ripplo/worlds/index.ts`; reuse a builder if one fits, else compose a new one on an existing base — don't re-seed auth/org/project. Extra `given` constraints narrow the starting state and stop tests from compounding — keep it to the minimal set.
+6. **Ensure the entities exist.** Every seeded row and asserted state needs an `entity(...)` in `.ripplo/entities/` and a matching engine impl (TS errors if missing).
+7. **Read the real component/route source** for ARIA roles, button text, form fields. **Never fabricate locators.** If the app lacks accessible names, add them to the app — don't fall back to `testId()`.
+8. **Write the workflow** (the intent string is the identity, not the filename):
 
    ```ts
    import {
      arbitrary,
+     branch,
      button,
      click,
+     count,
      fill,
      goto,
      heading,
+     inside,
+     link,
+     not,
      role,
+     row,
      text,
      textbox,
      visible,
+     when,
      workflow,
    } from "@ripplo/testing";
    import { Task } from "../../entities/index.js";
    import { ownedProject } from "../../worlds/index.js";
 
-   export const createTask = workflow("Create a task in a project", () => {
+   export const createAndCompleteTask = workflow("Create a task and mark it done", () => {
      const { me, project, session } = ownedProject();
+     const existing = Task.maybe({
+       title: arbitrary(Task.field.title),
+       status: "open",
+       projectId: project.id,
+     });
      const title = arbitrary(Task.field.title);
      return {
-       given: [me, project, session],
+       given: [me, project, session, existing],
        steps: [
-         goto`/projects/${project.id}/tasks`.expect(visible(button("New task"))),
-         click(button("New task")).expect(visible(heading("New task")), visible(textbox("Title"))),
+         goto`/`.expect(visible(link(project.name))),
+         click(link(project.name)).expect(visible(link("Tasks"))),
+         click(link("Tasks")).expect(
+           visible(button("New task")),
+           when(
+             branch("starting from an empty task list")
+               .if(count(Task).is(0))
+               .expect(text(role("main"), "No tasks yet")),
+             branch("starting from a list that already has tasks").expect(
+               visible(row(existing.title)),
+             ),
+           ),
+         ),
+         click(button("New task")).expect(
+           visible(heading("New task")),
+           visible(textbox("Title")),
+           visible(button("Create")),
+         ),
          fill(textbox("Title"), title),
          click(button("Create")).expect(
-           visible(text(role("listitem"), title)),
+           not(visible(role("dialog"))),
+           visible(row(title)),
+           visible(inside(row(title), button("Mark done"))),
            Task.created({ title, projectId: project.id }),
+         ),
+         click(inside(row(title), button("Mark done"))).expect(
+           text(row(title), "Done"),
+           Task.updated({ title, projectId: project.id }, { status: "done" }),
          ),
        ],
      };
    });
    ```
 
-7. **Register it** — add the export to the `workflows` array in `.ripplo/workflows/index.ts` (funneled into `createRipplo({ entities, singletons, workflows })`). The subfolder under `.ripplo/workflows/` is the sidebar group. Unregistered workflows don't exist.
-8. `npx ripplo lint` — fix all errors. Lint also enumerates each workflow's tests and fails on unreachable when branches.
-9. `npx ripplo run <workflow-slug>` runs every enumerated test of the workflow; `<workflow-slug>/<test-slug>` runs one branch (slugs from run output; the quoted intent string also works). On failure, `/ripplo:run`.
-10. `npx ripplo compile` and **stage `.ripplo/ripplo.lock`** alongside the `.ripplo/*.ts` changes.
+   The shape to copy: entry at `/`, navigation clicked like a user, a `when` where seeded state changes what the page shows, two mutations each carrying UI plus backend evidence, and the second mutation acting on state the first one created — nothing seeded that the path could produce. Note every clicked element was declared `visible(...)` by an earlier step — lint rejects touching anything no step has shown exists, so each step's `.expect(...)` declares exhaustively what appeared (and, with `not(visible(...))`, what disappeared).
+
+9. **Register it** — add the export to the `workflows` array in `.ripplo/workflows/index.ts` (funneled into `createRipplo({ entities, singletons, workflows })`). The subfolder under `.ripplo/workflows/` is the sidebar group. Unregistered workflows don't exist.
+10. `npx ripplo lint` — fix all errors. Lint also enumerates each workflow's tests and fails on unreachable when branches.
+11. `npx ripplo run <workflow-slug>` runs every enumerated test of the workflow; `<workflow-slug>/<test-slug>` runs one branch (slugs from run output; the quoted intent string also works). On failure, `/ripplo:run`.
+12. `npx ripplo compile` and **stage `.ripplo/ripplo.lock`** alongside the `.ripplo/*.ts` changes.
 
 ## What makes a good workflow
+
+It reads like a user session. Entry at a natural landing page, navigation clicked not teleported, several mutations along one intent, later steps consuming what earlier steps created. If the steps are goto → click → assert, the journey is missing — go back to the click path.
 
 Cover each mutation in three phases:
 
@@ -127,6 +169,7 @@ export const Task = entity("task", {
   description: "A task under a project",
   fields: {
     title: field({ value: v.word() }),
+    status: field({ value: v.oneOf(["open", "done"]) }),
     projectId: field({ value: v.id() }), // FK = a plain id field wired at setup
   },
   identity: { id: id() },
@@ -140,12 +183,12 @@ export const Task = entity("task", {
 task: {
   seed: async ({ fields, runId }) => {
     const id = testId(runId, "task");                  // run-scoped id => parallel isolation
-    await db.task.create({ data: { id, title: fields.title, projectId: fields.projectId } });
-    return { row: { id, title: fields.title, projectId: fields.projectId }, session: undefined };
+    await db.task.create({ data: { id, ...fields } });
+    return { row: { id, ...fields }, session: undefined };
   },
   read: async ({ runId }) => {
     const rows = await db.task.findMany({ where: { projectId: { startsWith: runPrefix(runId) } } });
-    return rows.map((t) => ({ id: t.id, title: t.title, projectId: t.projectId }));
+    return rows.map((t) => ({ id: t.id, title: t.title, status: t.status, projectId: t.projectId }));
   },
 },
 ```
