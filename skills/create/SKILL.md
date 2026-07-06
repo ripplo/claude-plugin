@@ -243,7 +243,7 @@ Debug: a run fails on a check the step never wrote, on an unrelated page. `npx r
 
 Named containers cover most leaks. The rest fall to these:
 
-- **Transient toast** — a success toast is gone by the next step, so it can't be a durable fact. Assert it inline on the mutation step if you want it, but carry the proof as `Entity.updated`, never as a `text(testId=toast-...)` that later steps inherit. Success toast at page load is always wrong — drop it, keep the state assertion.
+- **Transient toast/spinner** — wrap it in `ephemeral(...)`: `ephemeral(text(testId("toast-success"), "Saved"))`. It's checked at that step (waiting to appear on the normal timeout) but never promoted to a fact, so it can't leak onto later steps. Still carry the durable proof as `Entity.updated` — a toast can lie. A success toast asserted at page load is always wrong. `ephemeral(...)` wraps UI predicates only, and grants no reachability — to click something, assert a normal `visible(...)`.
 - **Post-delete absence** — assert `not(visible(...))` on the delete step itself, where the row is confirmed gone. Don't leave a `visible(row)` fact that a later page re-checks.
 - **Generic shared name** — a `button("Save")`/`button("Update")` that appears on many settings pages under the same name is inherently global. Scope it inside the page `main(...)` (or a region) to make the consequence page-local.
 - **Duplicate accessible name on one page** — two elements share a name (two "Dark" radios: app theme + booking theme). Disambiguate with `inside(region(...), ...)` or a more specific role — never a bare name that matches both, which also trips strict-mode locator errors.

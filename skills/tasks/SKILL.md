@@ -43,6 +43,7 @@ When the bug is verifiable, the durable proof is an assertion in a workflow that
 
 - Extend the workflow that exercises the flow with the assertion that pins the correct behavior, run it, watch it go **red on the broken app**, fix the app, watch it go **green**. That red→green transition is the proof.
 - Ripplo provides **`unobstructed(locator)`** for interaction-triggered visual bugs (one element covering another). It hit-tests the locator's box against what's actually painted on top. Use `expect(unobstructed("..."))` after the interaction that should reveal the element (e.g. `hover(row) → expect(unobstructed("..."))`); use `not(unobstructed(...))` to assert something _is_ covered. Reach for `visible`/`value`/`text` and the backend `Entity.created/updated/deleted` assertions the same way — encode the fix as a check, don't eyeball it.
+- A task anchored on a **transient element** — a toast, spinner, or skeleton that appears then vanishes — is provable as an assertion, not just a snapshot. Wrap it: `ephemeral(text(testId("toast-success"), "Saved"))` waits for it to appear and passes the instant it does, without leaking onto later steps. When the complaint is that a momentary element did or didn't show, this red→green assertion is the durable proof — prefer it over the visual loop.
 - A backend or state bug → a backend assertion on the mutation step. A wrong value → pin the value. The rule is the same: make the run go red first, or you haven't proven the bug existed.
 
 ## If it isn't provable in an existing workflow, write one
@@ -56,7 +57,7 @@ New scaffolding (a predicate, an entity + engine impl, a world) is in-scope work
 
 ## The visual loop (presentation / iteration tasks)
 
-For "this looks wrong at this frame" tasks, run a closed loop and Read every PNG:
+This loop is for look, layout, and timing bugs no predicate captures — spacing, color, alignment, jank. It covers transient elements too when the complaint is how one looks: a toast's style, position, or wording is iterated here, snapshotting the frame where it's up. Only pure existence — did the toast or spinner appear at all — is an `ephemeral(...)` assertion instead. For "this looks wrong at this frame" tasks, run a closed loop and Read every PNG:
 
 1. **See the baseline.** `npx ripplo snapshot <runId> --offset <frameMs>` (the frame offset the task is anchored to — `show` prints the exact command) reproduces the flagged frame; Read the PNG and confirm it shows the complaint. `snapshot` auto-pulls the run's behavior stream on demand — runs aren't kept on local disk, so this fetch happens for local and cloud runs alike. Baseline doesn't show the complaint? Stop and ask — you may have the wrong frame or element.
 2. **Find the code** from the anchored element identity (tag, role/name, testid) and the screenshot. Trust the screenshot over a CSS-selector hint.

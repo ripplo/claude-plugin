@@ -117,7 +117,7 @@ ready(); // at your app's genuine "interactive" point
 Put it at the app's true ready point for your framework:
 
 - **TanStack Router / React Router** — after the first route resolves with its data: `router.subscribe("onResolved", () => ready())`.
-- **Next.js** — in a root layout effect once the initial data has rendered.
+- **Next.js** — in `instrumentation-client.ts`, not a layout effect or a client component. A component rendered in the layout is loaded lazily in dev, and turbopack only evaluates it once the HMR websocket connects. Behind a tunnel that websocket can't connect, so the component never runs and `ready()` never fires. `instrumentation-client.ts` runs during the initial client bootstrap, so it fires with or without HMR.
 - **Plain SPA** — right after the top-level data load settles and you render real content.
 
 Gate the call behind the same build-time testing flag your app already uses (`VITE_ENABLE_RIPPLO_TESTING`, `NEXT_PUBLIC_ENABLE_RIPPLO_TESTING`, …) so it's a no-op in production. This is **required**: if `ready()` never fires within 30s of a page load, every run fails with `appNotReady`.
