@@ -226,6 +226,28 @@ Tests run concurrently. Isolation lives in the **engine impl**, not the workflow
 - `arbitrary(...)` for seeded values; reference handles (`project.id`, `task.title`) directly — never hardcode ids.
 - The setup/act boundary is `given:` vs `steps:` — everything a step needs traces to a handle in `given`.
 
+## Facts — how a `visible`/`text` assertion carries forward
+
+Every `visible(...)`/`text(...)`/`value(...)` you assert becomes a **fact**: a `when ⇒ consequence` rule the model keeps and re-checks on every later step whose state matches `when`. That is the point of the model — assert `visible(button("Save"))` once and Ripplo holds you to it wherever that state recurs, catching real inconsistencies the explorer walks into. Facts are keyed by their **consequence** (the predicate), and grouped across the whole suite by it.
+
+When the same consequence is asserted by two or more workflows, the model **generalizes**: it keeps only the conditions those assertions share and drops the rest. If they were on different URLs, the URL drops out — the fact now holds under bare entity-state and is enforced on every page with that state. So `visible(button("Save"))` asserted on two pages is read as a global claim "Save is available in this state," and fails on a third page that has no Save. Locator kind is irrelevant — a `testId` consequence generalizes identically.
+
+This is intended strictness, not a bug. A fact is global unless its **consequence is page-specific**:
+
+- Global capability (present everywhere in that state) → assert it bare. Correct and wanted.
+- Page-specific element → give the consequence a page-unique identity so it can't group with another page's. Scope inside a named container — `visible(inside(dialog("Duplicate event type"), button("Continue")))`, `inside(region("Availability"), button("Save"))`. Different container name → different consequence → stays single-producer → stays local. Add the `aria-label`/landmark to the app when none exists — it is real accessibility markup, not test scaffolding.
+
+Debug: a run fails on a check the step never wrote, on an unrelated page. `npx ripplo explain <runId>` names the workflows that taught the fact and prints `at (any view)` when the URL was generalized away. It tags each fact `inferred` (one workflow asserted it, re-checked here because the state matches) or `learned` (generalized from two or more, conditions intersected) — `learned` on `(any view)` is the classic over-broad fact.
+
+### Scoping conventions
+
+Named containers cover most leaks. The rest fall to these:
+
+- **Transient toast** — a success toast is gone by the next step, so it can't be a durable fact. Assert it inline on the mutation step if you want it, but carry the proof as `Entity.updated`, never as a `text(testId=toast-...)` that later steps inherit. Success toast at page load is always wrong — drop it, keep the state assertion.
+- **Post-delete absence** — assert `not(visible(...))` on the delete step itself, where the row is confirmed gone. Don't leave a `visible(row)` fact that a later page re-checks.
+- **Generic shared name** — a `button("Save")`/`button("Update")` that appears on many settings pages under the same name is inherently global. Scope it inside the page `main(...)` (or a region) to make the consequence page-local.
+- **Duplicate accessible name on one page** — two elements share a name (two "Dark" radios: app theme + booking theme). Disambiguate with `inside(region(...), ...)` or a more specific role — never a bare name that matches both, which also trips strict-mode locator errors.
+
 ## Parallelizing multi-workflow sessions
 
 Implementing more than ~3 workflows: fan out subagents (~5 per batch, one per workflow or per 2–3 sharing a world). **Every Agent prompt must instruct the subagent to first invoke the Skill tool with `ripplo:create`** — subagents don't inherit skill context and will hallucinate DSL without it. Keep lint/run/debug and entity+impl wiring on the main agent.
