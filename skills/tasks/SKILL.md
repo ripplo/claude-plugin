@@ -53,7 +53,7 @@ A bug that no current clickpath reaches is **unprovable as a test — and an unp
 1. Extend the flagging workflow so its run faithfully exercises the bug (add the `hover`, the seed state, the branch), then resolve on that run — this makes the proof and the flag point at the same moment. Or
 2. Write a new workflow (`/ripplo:create`) whose run reproduces the condition, scope it, run it red→green.
 
-New scaffolding (a predicate, an entity + engine impl, a world) is in-scope work, not a follow-up.
+New scaffolding (a predicate, an entity + engine impl, a given) is in-scope work, not a follow-up.
 
 ## The visual loop (presentation / iteration tasks)
 

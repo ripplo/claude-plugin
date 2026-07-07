@@ -7,7 +7,7 @@ description: "Initialize Ripplo from zero in a project: auth login → init → 
 
 Flow: **user logs in once → run `npx ripplo init` → start `npx ripplo daemon` in the background → mount the engine adapter → author and run a first workflow**.
 
-Most users have never used Ripplo. Narrate in plain language and explain why before asking for input or editing files. Avoid internal terms ("engine", "adapter", "entity", "world", "lockfile") in user-facing questions until you've defined them. Orientation up front: "Ripplo runs end-to-end browser tests against your app. Setup will log you in, scaffold a `.ripplo/` folder for workflow definitions, add a small adapter to your backend so tests can seed data and verify results, and run a first test to confirm everything works."
+Most users have never used Ripplo. Narrate in plain language and explain why before asking for input or editing files. Avoid internal terms ("engine", "adapter", "entity", "given", "lockfile") in user-facing questions until you've defined them. Orientation up front: "Ripplo runs end-to-end browser tests against your app. Setup will log you in, scaffold a `.ripplo/` folder for workflow definitions, add a small adapter to your backend so tests can seed data and verify results, and run a first test to confirm everything works."
 
 **Already-set-up repos:** if `.ripplo/workflows/` exists, skip step 2 (init) and step 8 (first run), but still satisfy steps 1, 3, and 5. Run `npx ripplo doctor` first and fix each failing check using the matching step — a rejected token or missing daemon still needs fixing.
 

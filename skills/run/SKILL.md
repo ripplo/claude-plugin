@@ -82,15 +82,15 @@ It re-drives the real test against the real app/backend through the first `n` st
 Every finding forces one of four moves. The run output's `decide:` line names the likely branch — confirm it against behavior.jsonl before acting:
 
 1. **App bug** — the workflows describe the promised behavior and the app broke it. Fix the app; never weaken the workflow to match broken behavior. File it (see "Filing a caught bug" below).
-2. **Strengthen the assertion** — the app is right and the workflow under-specified the outcome (e.g. a mutation with no backend effect declared). Add the missing `created/updated/deleted` or UI check.
-3. **Restrict the `given`** — the expected behavior only holds from a narrower starting state. Tighten this workflow's world so it always starts in the state its assertions assume. If the behavior diverges by state rather than disappearing, add a named `when` branch instead — the compiler enumerates a test per branch.
-4. **Split into a new workflow** — the case excluded by restricting `given` is real behavior the workflows should cover. Stub a new workflow with its own world and put it in scope.
+2. **Strengthen the assertion** — the app is right and the workflow under-specified the outcome. Two common gaps: a mutation with no `created/updated/deleted`, and a mutation whose UI delta went undeclared — the row that leaves a filtered list, a toggle label that swaps, a section that unmounts. Declare what appeared and what disappeared on the mutation step itself.
+3. **Restrict the `given`** — the expected behavior only holds from a narrower starting state. Tighten this workflow's givens so it always starts in the state its assertions assume. If the behavior diverges by state rather than disappearing, add a named `when` branch instead — the compiler enumerates a test per branch.
+4. **Split into a new workflow** — the case excluded by restricting `given` is real behavior the workflows should cover. Stub a new workflow with its own givens and put it in scope.
 
 Moves 3 and 4 almost always pair: every `given` you tighten implies a state you stopped covering. Ask "what flow now owns that state?" before moving on.
 
 ### One failing test at a time
 
-Multiple failures: pick the most upstream one (world/seed or shared-entity over a test-specific selector), own it through fix and verify, then move on. Verify with `npx ripplo run <workflow-slug>/<test-slug>` (just the workflow slug reruns every branch) until green, then bare `npx ripplo run` once so cross-test breakage surfaces. Don't batch edits across workflows — when the suite lights up red you can't tell which edit broke what.
+Multiple failures: pick the most upstream one (given/seed or shared-entity over a test-specific selector), own it through fix and verify, then move on. Verify with `npx ripplo run <workflow-slug>/<test-slug>` (just the workflow slug reruns every branch) until green, then bare `npx ripplo run` once so cross-test breakage surfaces. Don't batch edits across workflows — when the suite lights up red you can't tell which edit broke what.
 
 ### Procedure
 
@@ -106,11 +106,11 @@ Multiple failures: pick the most upstream one (world/seed or shared-entity over 
   - **wrong-value / missing-row / unexpected-row** → the app's state didn't reach what the test declared: app dropped/mis-wrote the value (check `network`/`span`), or the assertion expects the wrong value.
   - **"never changed within the Ns wait window"** → the app still showed the pre-step value at the deadline — slow write, not wrong. Declare `wait: "slow"` (or `"async"`) on that expectation; don't switch the field to `consistency: "eventual"` (that also tolerates wrong intermediate values).
   - Consistency flags: `strict` means the field must match immediately after the step, `eventual` means it may lag briefly and Ripplo waits for it. A wrong intermediate value under `strict` fails fast by design — app bug, not timing.
-  - Server-chosen value → assert `changed()` instead of pinning a literal.
+  - Server-chosen value → assert `changed()` instead of pinning a literal, or `increased()`/`decreased()` when the direction matters (a bumped counter, a touched timestamp).
   - Genuine flicker-through-wrong-values (rare) → the field may need `consistency: "eventual"`.
 - **Fact violation** — "A fact learned from <workflow> ... never held here", naming the originating workflow. Ripplo generalizes assertions like "at URL X, heading Y is visible" into facts enforced across tests. If your workflow legitimately reaches that URL in a different state, make the originating assertion conditional: `when(branch("no items yet").if(count(Entity).is(0)).expect(visible(heading("No items"))))`.
 - **Duplicate locator (strict mode)** — `resolved to 2 elements`. Scope the target: `inside(main(), button("New"))`, `inside(row(schedule.name), button("Delete"))`. Container rows usually need an `aria-label` in the app — add it; don't fall back to `testId`.
-- **World / seed wrong** — the starting state isn't what the workflow assumes. Check the engine impl's `seed`/`read`, not the workflow.
+- **Given / seed wrong** — the starting state isn't what the workflow assumes. Check the engine impl's `seed`/`read`, not the workflow.
 - **Seed exists but the action does nothing** — the click runs, but no mutation lands and the step made no network request. The row is there, yet the button is dead because the app needs more state first (a booking that can be cancelled, a confirmed status, a toggle that unlocks the action). Snapshot the frame (`npx ripplo snapshot <runId> --at <timestamp>`) to see the disabled or no-op control, then add the missing state to the seed in the engine impl. Working out which state the handler needs is usually the hard part, not the test.
 - **Parallel collision** — unique-constraint error, 401 mid-run, rows vanishing. The engine impl isn't isolating per-run (run-scoped ids in `seed`, `runPrefix(runId)` in `read`/cleanup). See `/ripplo:create` → "Parallel safety".
 - **App bug** — file it (see below), then report to the user with the finding + failing step + evidence. Don't work around.
@@ -139,7 +139,7 @@ Only **functionality bugs in the app under test** — behavior a user would hit 
 
 Do not file:
 
-- Test gaps, wrong locators, races, under-specified assertions, world/seed problems — those are model fixes.
+- Test gaps, wrong locators, races, under-specified assertions, given/seed problems — those are model fixes.
 - Flaky infrastructure, daemon/sync issues, stale lockfiles.
 - Style, copy, or cosmetic issues with no functional impact.
 - Anything unconfirmed against evidence (failing assertion, network/span trace, page error).
