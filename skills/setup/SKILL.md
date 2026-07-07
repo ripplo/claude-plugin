@@ -29,9 +29,8 @@ Fetch projects yourself — never ask the user to paste a project id:
 npx ripplo projects list   # JSON: { "projects": [{ "id", "name" }] }
 ```
 
-- **0 projects** — stop; the user must create one in the dashboard first.
-- **1 project** — auto-select.
-- **2+** — `AskUserQuestion` with project **names**, map the choice back to its id.
+- **0 projects** — create one right here. `AskUserQuestion` for the name with the repo folder name as the suggested option, then `npx ripplo projects create <name>` (JSON: `{ "project": { "id", "name" } }`) and use the returned id. Multiple organizations makes create fail with the org list — re-run with `--org <id>` after asking the user which one.
+- **1+ projects** — `AskUserQuestion` with project **names** plus a "create a new project" option, map the choice back to its id (or create as above). Never auto-select — wiring the wrong project is painful to undo.
 
 Then resolve the rest (detect first, confirm via `AskUserQuestion` in plain terms — "Where does your frontend run in dev?", "Does your backend run on the same port?"):
 

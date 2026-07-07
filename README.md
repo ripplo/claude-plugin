@@ -4,21 +4,15 @@ Validation-loop hooks that keep your agent's tests in step with the code it ship
 
 ## Install
 
-The plugin shells out to the [`ripplo` CLI](https://www.npmjs.com/package/ripplo), so authenticate first:
+One command installs the plugin and opens a guided setup session in Claude Code:
 
 ```sh
-npx ripplo auth login
+npx ripplo setup
 ```
 
-Then in Claude Code:
+The session signs you in, creates your project, runs `ripplo init` (scaffolds `.ripplo/`, writes `RIPPLO_*` env vars, installs `@ripplo/testing`), starts `ripplo daemon` as a background process, and mounts the engine adapter into your app server.
 
-```
-/plugin marketplace add ripplo/claude-plugin
-/plugin install ripplo
-/ripplo:setup
-```
-
-`/ripplo:setup` runs `ripplo init` (scaffolds `.ripplo/`, writes `RIPPLO_*` env vars, installs `@ripplo/testing`), starts `ripplo daemon` as a background process, and mounts the engine adapter into your app server.
+Installing by hand instead: `/plugin marketplace add ripplo/claude-plugin`, `/plugin install ripplo`, then `/ripplo:setup`.
 
 ## What the hooks do
 
