@@ -23,7 +23,7 @@ The executor switches live — `npx ripplo executor <local|cloud>` (or the dev-b
 3. **`Dev session` red:** spawn the daemon via `Bash` with `run_in_background`, `cwd` = the directory containing `.ripplo/` (workspace root in monorepos): `npx ripplo daemon`. If the user asked for cloud (`/ripplo:start cloud`), run `npx ripplo executor cloud` once doctor is green.
 4. Wait 3–5 seconds, re-run `npx ripplo doctor`. Green → confirm to the user.
 5. Still red with the daemon in the process list: read its background log via `BashOutput` and surface what it printed. Common causes: auth token missing/expired, env file not found, Ripplo server unreachable, wrong cwd. Stop and report — don't loop.
-6. Dev session green: run `npx ripplo tasks list` once to surface the current backlog, then pick up anything open.
+6. Dev session green: run `npx ripplo tasks list` once to surface the current backlog, then pick up anything open — mark each pickup with `npx ripplo tasks start <id>` so the panel shows it in progress.
 7. Arm the task watcher so tasks filed later wake you without a re-prompt: call the `Monitor` tool with `command: "npx ripplo tasks watch"`, `persistent: true`, `description: "new ripplo tasks"`, `cwd` = the directory containing `.ripplo/`. Each event is a new task or a user reply — pick it up, delegating to a subagent when the work is cleanly delegable. Stop it with `TaskStop` if the user asks.
 
 ## Daemon lifecycle

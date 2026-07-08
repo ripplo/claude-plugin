@@ -11,7 +11,7 @@ A task is an open-ended request anchored to a moment in a run. Users explore the
 
 A task moves through four states. Know which state means "act" and which means "hands off," because two mechanisms enforce this for you: the task watcher (armed by `/ripplo:start`) wakes you the moment a task needs attention, and the done-check blocks you from ending the session while any task is still open.
 
-- **open** — needs you. New tasks, reopened tasks, and user replies on an open task all land here. The watcher surfaces each one live, even while you sit idle. Pick it up.
+- **open** — needs you. New tasks, reopened tasks, and user replies on an open task all land here. The watcher surfaces each one live, even while you sit idle. Pick it up, and mark the pickup with `npx ripplo tasks start <id>` — that flags it in progress in the panel so the user sees it's being worked. Resolving, dismissing, or clarifying clears the flag; until then the task stays yours. The user can no longer edit a task once you've started it, so start when you actually begin, not when you merely notice it.
 - **reopened** — a task you resolved that the user sent back. This is not a fresh unrelated request — your earlier resolution didn't hold. Revisit that fix, find what you missed, and prove it again. The watcher flags reopens distinctly for exactly this reason.
 - **needs clarification** — waiting on the user, not on you. You set this with `clarify` when you're genuinely blocked. It leaves your queue until the user replies, and their reply flips it back to **open** and wakes you. Don't sit on a needs-clarification task.
 - **resolved / dismissed** — done. Out of the queue, out of the done-check. If the user resolves or dismisses a task while you're working it, it is no longer relevant — **stop working it.** You won't get a wake for this (that would be noise) — you find out at your next stop, where the done-check no longer lists it. Don't keep grinding a task that's left the open set.
@@ -75,6 +75,7 @@ When you don't have the exact frame — a flash, a stagger, a transition — bin
 ```sh
 npx ripplo tasks list                     # open tasks for this dev session
 npx ripplo tasks show <id>                # full message thread, with each message's run + frame anchor
+npx ripplo tasks start <id>               # mark picked up — shows in progress until resolved, dismissed, or clarified
 npx ripplo tasks comment <id> <body> --run <runId> --offset <ms> --element <rrwebId> [--as <name>]
 npx ripplo tasks resolve <id> --run <runId> [--note <text>] [--as <name>]
 npx ripplo tasks clarify <id> <body>      # blocked on the user — ask what you need
