@@ -16,7 +16,7 @@ Needs the app dev server + `npx ripplo daemon`. Run `npx ripplo doctor`; if miss
 **Map the app:**
 
 - Routes, guards, layouts, redirects, dynamic segments and the entities they reference.
-- Auth: provider, session storage, role model, and the **programmatic** session-creation path (not UI login) — the `user`/`session` engine impls will use it.
+- Auth: provider, session storage, role model, and the **programmatic** session-creation path (not UI login) — the `signIn` + `currentActor` engine impls (on the `principal: true` entity) will use it.
 - Data model: tables/entities, relationships, what's required to reach what.
 
 **Inventory every state-mutating interaction** — miss nothing: dialogs, forms (incl. filters/search), inline editing, action menus, mutating toggles, drag-and-drop, bulk actions, confirmations, wizards, tabbed panels with distinct data, upload/import/export, settings saves, toast actions, keyboard shortcuts.

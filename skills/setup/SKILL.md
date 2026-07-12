@@ -58,13 +58,18 @@ The **engine funnel** maps each entity in `.ripplo/entities/` to a `seed` (creat
 import { createEngine } from "@ripplo/testing";
 import ripplo from "../../../../.ripplo/index.js";
 import { impls } from "./impls.js"; // per-entity { seed, read } — see /ripplo:create "Adding an entity"
+import { signIn, currentActor } from "./auth.js"; // auth impls — see "Seeding a signed-in session"
 
-export const engine = createEngine(ripplo, { entities: impls, singletons: {} }, teardown);
+export const engine = createEngine(
+  ripplo,
+  { entities: impls, signIn, currentActor, singletons: {} },
+  teardown,
+);
 ```
 
-`impls` starts empty and grows one entry per entity — TS errors until every entity has one. `teardown` deletes a run's seeded rows by run id.
+`impls` starts empty and grows one entry per entity — TS errors until every entity has one. `signIn` needs one impl per `principal: true` entity; `currentActor` is a single global impl. `teardown` deletes a run's seeded rows by run id.
 
-Mount it (Express; other frameworks adapt the engine's `setup`/`state`/`teardown` to their router):
+Mount it (Express; other frameworks adapt the engine's `setup`/`sign-in`/`state`/`teardown` to their router):
 
 ```ts
 import { createEngineHandler } from "@ripplo/testing/express";
@@ -80,12 +85,17 @@ app.use(
 
 ### Seeding a signed-in session
 
-Most workflows need a signed-in user, and this is the steepest part of setup: the `user`/`session` seed impl must produce a browser session your app accepts as authentic. The contract is small — the seed returns `{ row, session }` where `session` is `{ cookies, origins }` (Playwright storage-state shape) — but filling it means reverse-engineering your app's auth. Work through this checklist in order, reading the app's own auth code at each step rather than guessing:
+Most workflows need a signed-in user, and this is the steepest part of setup. Auth is its own contract — `seed` just creates the row, it never returns a session. Signing in is two impls on a `principal: true` entity (usually `user`):
 
-1. **Find where the app verifies a session.** The middleware or helper that turns a request into a user (`getUser`, `auth()`, a session middleware). Everything below comes from reading it.
-2. **Token or session row?** JWT-cookie apps (NextAuth JWT strategy, custom JWT) need the seed to mint a token with the app's signing secret. Session-table apps need the seed to insert a session row and set its id as the cookie.
+- **`signIn(row) => Session`** — one per principal entity. Mints a browser session your app accepts as authentic: `{ cookies, origins }` (Playwright storage-state shape). Called when a workflow's `given` (or a mid-run `actor.set` step) targets that principal.
+- **`currentActor(session) => id | null`** — one global impl. Resolves the live browser cookies to the signed-in user's id, or `null` when signed out. Ripplo calls it every frame (it rides the `/state` read) so it can verify who's signed in — read the identity fresh from the given cookies, never a cache.
+
+Filling `signIn` means reverse-engineering your app's auth; `currentActor` is the read side of the same code. Work through this checklist in order, reading the app's own auth code rather than guessing:
+
+1. **Find where the app verifies a session.** The middleware or helper that turns a request into a user (`getUser`, `auth()`, a session middleware). `signIn` produces what it reads; `currentActor` calls it (or its logic) on the given cookies.
+2. **Token or session row?** JWT-cookie apps (NextAuth JWT strategy, custom JWT) need `signIn` to mint a token with the app's signing secret. Session-table apps need it to insert a session row and set its id as the cookie.
 3. **Exact cookie names and attributes.** Copy them from the app's config — NextAuth uses different names with and without HTTPS (`next-auth.session-token` vs `__Secure-...`), and a wrong name fails silently.
-4. **Identity matching.** Whatever claim the verifier reads (`token.sub`, `session.userId`) must equal the seeded user's id — trace how the app's own login sets it.
+4. **Identity matching.** Whatever claim the verifier reads (`token.sub`, `session.userId`) must equal the seeded user's id — trace how the app's own login sets it. `currentActor` must return that same id.
 5. **Guards on a fresh session.** MFA flags, email verification, onboarding state, feature gates — seed the user in a state that passes every one, or the first navigation redirects and every test fails on the wrong page.
 6. **Verify seeded assumptions against the real database.** Roles, groups, and permissions from a seed script may not match this environment (group 5 is admin in one database and a no-permission user in another). A permissions gap shows up as flaky 403s and half-rendered pages, not a clear failure — query the actual rows before trusting a green run.
 

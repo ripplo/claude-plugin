@@ -23,6 +23,11 @@ This skill covers the common path. The **full primitive catalog** — every acti
 
 A workflow is a **user journey**: one thing the user set out to accomplish, traced as the real click path from a natural entry point, however many steps and mutations that takes. "Set up my project's first task board" is one workflow — navigate in, create the board, add a task, verify it stuck. A single button click with one assertion is almost never a whole journey. A different intent ("also delete the project") is a separate workflow.
 
+Two primitives you'll reach for often (full detail in DSL.md):
+
+- **Who's signed in — `actor`.** `actor.set(handle)` in `given` = the test starts signed in as that seeded principal; as a _step_ = a mid-run switch (signs in, reloads). `actor.anonymous` = signed out. Sign-out is declared, not performed: assert `actor.is(actor.anonymous)` on the step that logs out / revokes the current session / deactivates the account. Ripplo observes the real signed-in identity every frame, so `actor.set` is self-verifying and an undeclared sign-out is caught on its own.
+- **Mutually-exclusive UI — `exclusive`.** Tabs, a toggle, settings sections where one state hides the others: declare the group once with `exclusive({ open: visible(a), closed: visible(b) })` (usually in `.ripplo/surfaces/`). Asserting one member auto-negates its siblings — skip the hand-written `not(visible(...))`.
+
 ## Procedure
 
 1. **Name the user intent in one sentence** ("a user sets up their first task and marks it done"). That sentence is the workflow — everything the user does to accomplish it belongs in this one workflow's steps.
@@ -36,6 +41,7 @@ A workflow is a **user journey**: one thing the user set out to accomplish, trac
 
    ```ts
    import {
+     actor,
      arbitrary,
      branch,
      button,
@@ -60,7 +66,7 @@ A workflow is a **user journey**: one thing the user set out to accomplish, trac
 
    export const createAndCompleteTask = workflow("Create a task and mark it done", () => {
      const me = given.user();
-     const session = given.session(me);
+     const signedIn = actor.set(me);
      const organization = given.organization();
      const membership = given.member(organization, me, "owner");
      const subscription = given.subscription(organization);
@@ -72,7 +78,7 @@ A workflow is a **user journey**: one thing the user set out to accomplish, trac
      });
      const title = arbitrary(Task.field.title);
      return {
-       given: [me, session, organization, membership, subscription, project, existing],
+       given: [me, signedIn, organization, membership, subscription, project, existing],
        steps: [
          goto`/`.expect(visible(link(project.name))),
          click(link(project.name)).expect(visible(link("Tasks"))),
@@ -194,7 +200,7 @@ task: {
   seed: async ({ fields, runId }) => {
     const id = testId(runId, "task");                  // run-scoped id => parallel isolation
     await db.task.create({ data: { id, ...fields } });
-    return { row: { id, ...fields }, session: undefined };
+    return { id, ...fields };                           // just the row — no session
   },
   read: async ({ runId }) => {
     const rows = await db.task.findMany({ where: { projectId: { startsWith: runPrefix(runId) } } });
@@ -203,7 +209,7 @@ task: {
 },
 ```
 
-- **`seed`** creates one row from `fields`, returns `{ row, session }` (`session` only for identity entities like `user`/`session`). Return the exact field shape the entity declares.
+- **`seed`** creates one row from `fields` and returns just that row — no session, no auth. Return the exact field shape the entity declares. Signing in is a separate concern: mark a principal entity `principal: true` and give it a `signIn` impl (mints a browser session) plus the global `currentActor(session)` impl (resolves live cookies → the signed-in id). See `/ripplo:setup` and DSL.md for the auth impls.
 - **`read`** returns all this run's rows. Scope every query by the run (`runPrefix(runId)` / run-scoped id) so Ripplo only sees this run's data.
 - Entities live in `.ripplo/`, impls in the app's engine funnel — never declare `entity(...)` in app code.
 - **Adding an entity obligates every flow that writes it.** Once an entity has a `read` impl, Ripplo checks its rows after every step — including rows the app creates as a side effect (creating a dataset that auto-creates default columns, for example). Before wiring the impl, search the app for every mutation that writes this table and declare those effects with `Entity.created(...)` in the affected workflows. An undeclared side-effect row surfaces as an unexpected-row finding with the row's fields ready to paste into a declaration.
