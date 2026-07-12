@@ -1,6 +1,6 @@
 ---
 name: run
-description: "Run Ripplo e2e tests, diagnose failures, manage Testing Scope, and file caught app bugs — the whole run→diagnose→file loop. Use when executing tests, when a run fails, when a drift nudge fires, when the user says 'in scope' / 'out of scope', when they want to teleport / open a live browser at a step in a test, or the moment you confirm a real app bug. For triaging background-explorer findings, use /ripplo:fuzz."
+description: "Run Ripplo e2e tests, diagnose failures, manage Testing Scope, and file caught app bugs — the whole run→diagnose→file loop. Use when executing tests, when a run fails, when a drift nudge fires, when the user says 'in scope' / 'out of scope', when they want to teleport / open a live browser at a step in a test, or the moment you confirm a real app bug. For triaging background-explorer findings, use /ripplo:tasks."
 ---
 
 # Run Ripplo Tests

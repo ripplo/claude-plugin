@@ -1,11 +1,13 @@
 ---
 name: tasks
-description: "Pick up Ripplo tasks — open-ended requests users anchor to a replay frame and element while exploring their app (fix a bug, change behavior, extend or write a workflow, ask a question). Use when a tasks reminder fires, when the user points you at a task, or before running any `npx ripplo tasks` command. Routes the request, and for app changes enforces the prove-it loop: reproduce the flagged frame, change the app, re-run, attach exact run/frame/element proof."
+description: "Pick up Ripplo tasks — open-ended requests users anchor to a replay frame and element while exploring their app (fix a bug, change behavior, extend or write a workflow, ask a question), plus background-explorer findings, which land as tasks of their own. Use when a tasks reminder fires, when the user points you at a task or finding, or before running any `npx ripplo tasks` command. Routes the request, and for app changes enforces the prove-it loop: reproduce the flagged frame, change the app, re-run, attach exact run/frame/element proof."
 ---
 
 # Pick up Ripplo tasks
 
 A task is an open-ended request anchored to a moment in a run. Users explore their app across space and time — the replay makes every frame, element, and workflow inspectable — and file a request on any facet of what they see: fix a visual bug, change a behavior, extend a workflow, write a new one, or ask how something works. The anchor (a run, a frame, usually an element) is the shared context; the comment thread is the conversation.
+
+The **background explorer** files tasks too. It fuzzes the app — local and cloud workers walk guided random paths over enabled actions no workflow author wrote — and every failed check becomes a **finding** reported to the server, deduped by signature, and opened as a task of kind `finding` anchored to its `explore-…` repro run. Findings don't wake you (they'd drown out user tasks), but they gate the same way — an open finding blocks the session end until you triage it. The triage loop lives in "Explorer findings" below.
 
 ## The task lifecycle — what needs your attention, and when you can stop
 
@@ -25,8 +27,22 @@ While hooks are active, you cannot end the session with a task still open — th
    - **A change to the app** (bug, behavior, layout, copy) → make the change, then **prove it with an exact run, frame, and element** (next section). This is the common case and the bar is strict.
    - **Extend or write test coverage** ("cover this flow", "this workflow should also check…", "add a test for…") → load `/ripplo:create`; the deliverable is the workflow running green over the requested flow.
    - **A question, or anything ambiguous** → answer in a `comment` anchored to the frame, or `clarify` if you need the user before you can act.
+   - **An explorer finding** (task of kind `finding`) → work the triage loop in "Explorer findings" below, then resolve or dismiss with proof.
 
 Match the response to the request — don't force every task into the fix-and-prove loop. But the moment a task means changing the app, the proof bar below is non-negotiable.
+
+## Explorer findings
+
+A finding is a task the explorer filed against an `explore-…` repro run — a check that failed on a composed path no workflow author wrote. Its category names what broke: **crash** (the app threw), **data rule** (a cross-entity reference stopped holding), **fact** (a learned page expectation failed), **frame** (a visual defect on a captured frame). Triage one at a time:
+
+1. **Explain.** `npx ripplo explain <runId>` reads the repro run back — it auto-pulls the run's `behavior.jsonl` from the server (explore runs aren't kept on local disk). It groups each failing check by step, shows where a fact was learned and when it fired in a different flow than it was learned in, gives expected vs actual for a state mismatch, and prints the exact `snapshot --at` for the failing frame. Start here; drop to the raw `behavior.jsonl` and `npx ripplo snapshot` only for detail it didn't surface. The repro is the minimal action sequence that triggers the failure.
+2. **Classify** — app bug vs test gap (the four-move tree lives in `/ripplo:run`):
+   - **App bug** — the workflows are right; the app breaks when actions compose this way. Fix the app and file it with `npx ripplo report-bug`, passing the `explore-…` repro run id as `--run` to link the bug to the finding.
+   - **Test gap** — a declaration is missing or wrong: an effect the action really has but never declared, a fact scoped too broadly, a given seeding an unintended state. Fix the declaration in `.ripplo/`.
+3. **Confirm.** `npx ripplo replay <runId>` re-drives this exact action sequence against the app. A clean run means resolved. If you fixed a test gap (edited `.ripplo/`), replay may report the model changed — that's expected; confirm with `npx ripplo compile` and `npx ripplo run <affected>` instead.
+4. **Resolve or dismiss.** Once confirmed, `npx ripplo tasks resolve <id> --run <replayRunId>` with the proof run, or `dismiss` if the evidence proves the app behavior is intended. One root cause often resolves siblings — findings sharing a failing step usually share a cause, so re-check the other open findings before deep-diving them.
+
+**Add-vs-weaken guardrail.** Edits that **add** declarations (a missing effect, a new `when` branch, a covering workflow) are normal fixes. Edits that **delete or weaken** them (dropping a fact, removing a declared effect, coarsening a vocabulary) leave that behavior permanently unchecked — only do this after proving from app source that the current behavior is intended, and cite that proof. Never silence a finding by loosening the workflows when the app is wrong.
 
 ## The non-negotiable for app changes: proof
 

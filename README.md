@@ -27,15 +27,14 @@ The plugin treats `src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, and `c
 
 ## Skills
 
-| Skill              | Description                                                        |
-| ------------------ | ------------------------------------------------------------------ |
-| `/ripplo:setup`    | One-time onboarding: auth, scaffold, engine adapter, first run     |
-| `/ripplo:start`    | Bring up the dev server + daemon for the dev session               |
-| `/ripplo:discover` | Crawl your codebase to map flows and plan test coverage            |
-| `/ripplo:create`   | Create a new workflow                                              |
-| `/ripplo:run`      | Run tests, diagnose failures, manage Testing Scope, file bugs      |
-| `/ripplo:fuzz`     | Triage findings from the background explorer                       |
-| `/ripplo:tasks`    | Pick up tasks anchored on a replay frame, prove the fix with a run |
+| Skill              | Description                                                    |
+| ------------------ | -------------------------------------------------------------- |
+| `/ripplo:setup`    | One-time onboarding: auth, scaffold, engine adapter, first run |
+| `/ripplo:start`    | Bring up the dev server + daemon for the dev session           |
+| `/ripplo:discover` | Crawl your codebase to map flows and plan test coverage        |
+| `/ripplo:create`   | Create a new workflow                                          |
+| `/ripplo:run`      | Run tests, diagnose failures, manage Testing Scope, file bugs  |
+| `/ripplo:tasks`    | Pick up tasks and explorer findings, prove the fix with a run  |
 
 ## Testing Scope
 
