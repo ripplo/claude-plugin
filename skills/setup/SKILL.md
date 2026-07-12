@@ -69,7 +69,9 @@ export const engine = createEngine(
 
 `impls` starts empty and grows one entry per entity — TS errors until every entity has one. `signIn` needs one impl per `principal: true` entity; `currentActor` is a single global impl. `teardown` deletes a run's seeded rows by run id.
 
-Mount it (Express; other frameworks adapt the engine's `setup`/`sign-in`/`state`/`teardown` to their router):
+Pick the adapter for your host and mount it at a path matching `RIPPLO_ENGINE_URL`. One subpath per framework — same `setup`/`sign-in`/`state`/`teardown` contract behind each: `@ripplo/testing/{express,fastify,koa,nestjs,nextjs,hono,elysia,vite}`. Import the named export from your framework's subpath (check its `.d.ts` for the exact name and signature). Most return a router/handler you mount; `nextjs` returns a `(Request) => Response` route handler, and `vite` is a config plugin — both shown below.
+
+Express (Fastify/Koa/Nest/Hono/Elysia follow the same shape):
 
 ```ts
 import { createEngineHandler } from "@ripplo/testing/express";
@@ -82,6 +84,22 @@ app.use(
 ```
 
 **Bind `enabled` to the env flag — never hardcode `true`.** The mount path must match the `RIPPLO_ENGINE_URL` path.
+
+**Client-only app with no backend server (a Vite SPA talking straight to a database or API from the browser)?** Don't stand up an Express server — mount the engine on the Vite dev server with the Vite plugin. The impls still run server-side in the Vite process (use a privileged key to seed/read your data store):
+
+```ts
+// vite.config.ts
+import { ripploPlugin } from "@ripplo/testing/vite";
+import { engine } from "./src/test/engine";
+
+export default defineConfig({
+  plugins: [react(), ripploPlugin({ engine, path: "/ripplo" })],
+});
+```
+
+The plugin loads your env file itself — it gates on `ENABLE_RIPPLO_TESTING` and reads `RIPPLO_WEBHOOK_SECRET`, so you pass only `engine` (and an optional `path`), no `enabled`. Same dev server, same port — no second process, no port juggling, and editing `engine` impls auto-restarts the server (Vite watches config imports). `RIPPLO_ENGINE_URL` is just `<app-url>/ripplo`.
+
+`@ripplo/instrument` (installed by init) is a **server-side** span preload — `node --import @ripplo/instrument`. A client-only app has no server to preload, so skip it there. The browser-side `ready()` signal is separate and still required (see below).
 
 ### Seeding a signed-in session
 
@@ -99,7 +117,20 @@ Filling `signIn` means reverse-engineering your app's auth; `currentActor` is th
 5. **Guards on a fresh session.** MFA flags, email verification, onboarding state, feature gates — seed the user in a state that passes every one, or the first navigation redirects and every test fails on the wrong page.
 6. **Verify seeded assumptions against the real database.** Roles, groups, and permissions from a seed script may not match this environment (group 5 is admin in one database and a no-permission user in another). A permissions gap shows up as flaky 403s and half-rendered pages, not a clear failure — query the actual rows before trusting a green run.
 
-Add the preload to the backend's dev script so runs capture backend spans alongside browser actions:
+**Auth in localStorage, not cookies (any app that keeps its token in the browser rather than a cookie)?** Ripplo captures the browser session as **cookies** every frame. An app that keeps its token only in localStorage hands Ripplo an empty session, so `currentActor` is never called and every run fails with `signed-in actor showed ∅ but the test expected "<id>"` — which reads like an app bug but is really "no session was captured." Until Ripplo captures localStorage directly, work around it by having the app mirror the signed-in id into a cookie Ripplo can read — a test-only bridge, gated by the flag so it never runs in production:
+
+```ts
+// where your app learns who is signed in (auth state listener), gated by the flag
+if (import.meta.env.VITE_ENABLE_RIPPLO_TESTING === "true") {
+  document.cookie = userId
+    ? `ripplo-actor=${userId}; path=/; SameSite=Lax`
+    : "ripplo-actor=; path=/; Max-Age=0";
+}
+```
+
+Then `signIn` sets the same cookie in the returned session's `cookies`, and `currentActor(session)` reads `ripplo-actor` back. Now the per-frame capture sees a real session and resolves the id. Only the id needs to travel — the app's actual auth still lives in localStorage.
+
+Add the preload to the backend's dev script so runs capture backend spans alongside browser actions (skip for a client-only app — no server to preload):
 
 ```sh
 node --import @ripplo/instrument server.js
