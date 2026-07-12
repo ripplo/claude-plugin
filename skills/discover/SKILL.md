@@ -42,6 +42,8 @@ Enumerate the journeys first: for each core thing a user comes to the app to do,
 - **Every mutation from Phase 1 appears in some journey** — CRUD per core entity, dialog flows, inline actions, bulk ops, import/export, role-specific behavior. An orphan mutation means a missing journey, not a one-click workflow.
 - **Every distinct render state appears** — as a `when` branch where seeded state changes an outcome along a journey's path, or as its own journey when the flow itself differs.
 
+Authoring depth pays twice. The facts and element declarations each journey adds are what the background explorer composes new paths from, and once these workflows run green the explorer probes beyond them automatically — deeper journeys give it more to walk.
+
 **Skip:** read-only views with no interaction, third-party OAuth redirects. Navigation is covered inside journeys, not as standalone workflows.
 
 Produce a concrete list — one line per journey, with its entry point, click path, composed givens, and the entity assertions that prove it. Confirm with the user before implementing.

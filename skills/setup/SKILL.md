@@ -157,6 +157,8 @@ Skip if `.ripplo/workflows/` already has workflows. Otherwise setup isn't comple
 - Pick a trivial smoke workflow (load the entry route, assert a top-level element). If the entry surface is non-obvious, ask via `AskUserQuestion`.
 - `npx ripplo run <workflow-slug>[/<test-slug>]`. If it fails, debug via `.ripplo/debug/<runId>/behavior.jsonl` — don't leave the user staring at a red first run.
 
+A green run auto-enables the background explorer — the third gate. From here on it walks composed paths no workflow author wrote, filling coverage gaps and catching bugs that only surface when actions combine, and files anything it finds as a task. So setup leaves the user with a passing first workflow and an explorer probing beyond it in the background. Triage its findings via `/ripplo:tasks`.
+
 ## Rules
 
 - Never bypass webhook signature checking or hardcode the secret.

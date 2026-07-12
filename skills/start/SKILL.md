@@ -24,13 +24,14 @@ The executor switches live — `npx ripplo executor <local|cloud>` (or the dev-b
 4. Wait 3–5 seconds, re-run `npx ripplo doctor`. Green → confirm to the user.
 5. Still red with the daemon in the process list: read its background log via `BashOutput` and surface what it printed. Common causes: auth token missing/expired, env file not found, Ripplo server unreachable, wrong cwd. Stop and report — don't loop.
 6. Dev session green: run `npx ripplo tasks list` once to surface the current backlog, then pick up anything open — mark each pickup with `npx ripplo tasks start <id>` so the panel shows it in progress.
-7. Arm the task watcher so tasks filed later wake you without a re-prompt: call the `Monitor` tool with `command: "npx ripplo tasks watch"`, `persistent: true`, `description: "new ripplo tasks"`, `cwd` = the directory containing `.ripplo/`. Each event is a new task or a user reply — pick it up, delegating to a subagent when the work is cleanly delegable. Stop it with `TaskStop` if the user asks.
+7. Arm the task watcher so tasks filed later wake you without a re-prompt: call the `Monitor` tool with `command: "npx ripplo tasks watch"`, `persistent: true`, `description: "new ripplo tasks"`, `cwd` = the directory containing `.ripplo/`. Each event is a new user task, a reopen, or a user reply — not an explorer finding, which lands quietly and is triaged via `/ripplo:tasks`. Pick up each wake, delegating to a subagent when the work is cleanly delegable. Stop it with `TaskStop` if the user asks.
 
 ## Daemon lifecycle
 
 `npx ripplo daemon` takes a lifecycle action: `start` (default, the long-running process), `stop`, `restart`, and `status`.
 
 - **`npx ripplo daemon status`** — quick foreground check: running or not, version, active/queued runs, explorer state. Use it before assuming anything about the daemon.
+- **`npx ripplo explore`** — show the background explorer's state; `npx ripplo explore on` / `npx ripplo explore off` toggle it (needs a live daemon session). It runs on either executor — `explore on` never switches where runs execute. A green `npx ripplo run` auto-enables it, so normally it just stays on.
 - **`npx ripplo daemon stop`** — signals the running daemon and waits up to 10s for a clean exit. Use it when a daemon you don't own is holding the dev session (a stale one from another terminal).
 - **`npx ripplo daemon restart`** — stop then start in one foreground process. This is for a human's terminal. As an agent, don't use it — the start half runs forever and your Bash call never returns. Instead: `npx ripplo daemon stop` (foreground, returns quickly), then spawn `npx ripplo daemon` with `run_in_background` as usual.
 

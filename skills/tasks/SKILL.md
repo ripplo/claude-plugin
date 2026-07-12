@@ -9,6 +9,8 @@ A task is an open-ended request anchored to a moment in a run. Users explore the
 
 The **background explorer** files tasks too. It fuzzes the app — local and cloud workers walk guided random paths over enabled actions no workflow author wrote — and every failed check becomes a **finding** reported to the server, deduped by signature, and opened as a task of kind `finding` anchored to its `explore-…` repro run. Findings don't wake you (they'd drown out user tasks), but they gate the same way — an open finding blocks the session end until you triage it. The triage loop lives in "Explorer findings" below.
 
+The explorer is always-on: a green `npx ripplo run` auto-enables it, so normally it just stays on and keeps filing findings. Toggle it with `npx ripplo explore on` / `npx ripplo explore off`, but a manual off is momentary — the next green run turns it back on. The only durable off is `npx ripplo hooks pause`, which also silences the other Ripplo gates.
+
 ## The task lifecycle — what needs your attention, and when you can stop
 
 A task moves through four states. Know which state means "act" and which means "hands off," because two mechanisms enforce this for you: the task watcher (armed by `/ripplo:start`) wakes you the moment a task needs attention, and the done-check blocks you from ending the session while any task is still open.

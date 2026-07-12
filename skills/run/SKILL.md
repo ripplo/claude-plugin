@@ -18,6 +18,19 @@ npx ripplo run --all                    # full suite — minutes of compute, use
 
 Needs the app dev server + `npx ripplo daemon` (run refuses to dispatch otherwise). `npx ripplo doctor` checks both; if red, `/ripplo:start`. Run compiles + syncs `.ripplo/` on demand. If it reports `"<slug>" was synced but the server didn't return it`, run `npx ripplo sync`. Reading artifacts needs neither process.
 
+## The background explorer — the third gate
+
+A green `npx ripplo run` (no failures, nothing not-run) auto-enables the background explorer. It's the third gate — it walks composed paths no workflow author wrote, fills coverage gaps, and catches bugs that only surface when actions combine. Leave it on. Findings arrive as tasks of kind `finding` — triage them via `/ripplo:tasks`.
+
+```sh
+npx ripplo explore                     # show explorer state
+npx ripplo explore on | off            # toggle (needs a live daemon session)
+npx ripplo explore --trail <n>         # path depth (default 12)
+npx ripplo explore --workers <n>       # concurrency (default 2)
+```
+
+It runs on either executor — cloud explores over the tunnel, and `explore on` never switches where runs execute. A manual `npx ripplo explore off` is momentary — the next green run re-enables it. The only durable off switch is `npx ripplo hooks pause`, which also silences the other Ripplo gates.
+
 ## On failure — read artifacts first, re-run last
 
 The CLI prints the failed step, the findings, and `Debug artifacts: .ripplo/debug/<runId>/`. A run takes ~30–60s and re-running tells you nothing new unless you've changed something. Don't pipe `npx ripplo run` through `grep`/`tail`/`head`, and don't re-run to reshape stdout. Only rerun after a fix.

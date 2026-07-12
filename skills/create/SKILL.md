@@ -248,6 +248,8 @@ Tests run concurrently. Isolation lives in the **engine impl**, not the workflow
 
 Every `visible(...)`/`text(...)`/`value(...)` you assert becomes a **fact**: a `when ⇒ consequence` rule the model keeps and re-checks on every later step whose state matches `when`. That is the point of the model — assert `visible(button("Save"))` once and Ripplo holds you to it wherever that state recurs, catching real inconsistencies the explorer walks into. Facts are keyed by their **consequence** (the predicate), and grouped across the whole suite by it.
 
+Facts and element declarations are also what the background explorer composes paths from — the deeper each workflow declares, the more the explorer has to walk. Once your workflows run green it probes beyond them automatically, walking composed paths no author wrote and filing what it finds as tasks (triage via `/ripplo:tasks`).
+
 When the same consequence is asserted by two or more workflows, the model **generalizes**: it keeps only the conditions those assertions share and drops the rest. If they were on different URLs, the URL drops out — the fact now holds under bare entity-state and is enforced on every page with that state. So `visible(button("Save"))` asserted on two pages is read as a global claim "Save is available in this state," and fails on a third page that has no Save. Locator kind is irrelevant — a `testId` consequence generalizes identically.
 
 This is intended strictness, not a bug. A fact is global unless its **consequence is page-specific**:
@@ -257,7 +259,25 @@ This is intended strictness, not a bug. A fact is global unless its **consequenc
 
 Debug at compile time: a `fact` violation from `npx ripplo compile` prints both contradicting consequences and, under each, every producing test with its full condition set. Read the two producer lists side by side — the one missing a pin the others share is what broadened the fact. Add that pin to the short producer, or split the outcome with a when branch.
 
-Debug at run time: a run fails on a check the step never wrote, on an unrelated page. `npx ripplo explain <runId>` names the workflows that taught the fact and prints `at (any view)` when the URL was generalized away. It tags each fact `inferred` (one workflow asserted it, re-checked here because the state matches) or `learned` (generalized from two or more, conditions intersected) — `learned` on `(any view)` is the classic over-broad fact.
+Debug at run time: a run fails on a check the step never wrote, on an unrelated page. `npx ripplo explain <runId>` names the workflows that taught the fact and prints `at (any view)` when the URL was generalized away. It tags each fact `inferred` (one workflow asserted it, re-checked here because the state matches), `learned` (generalized from two or more, conditions intersected), or `declared` (a standalone fact you wrote — see below) — `learned` on `(any view)` is the classic over-broad fact.
+
+### Declared facts — a rule without a workflow
+
+The three tiers form one promotion pipeline: a workflow assertion is `inferred` (one producer), the same consequence from two or more workflows generalizes to `learned` (shared conditions only), and a `declared` fact sits above both — you author it directly, and it is always enforced without any workflow producing it. A more specific fact overrides a more general one, so a declared or inferred fact wins over a broad `learned` one on the pages it covers.
+
+Reach for a declared fact when a rule spans the whole app and no single workflow owns it — an invariant ("the crash screen never shows") or a permission boundary ("members can't see the rotate-secret button"). Write them in `.ripplo/facts.ts` and wire the array into `createRipplo({ ..., facts })`:
+
+```ts
+export const noCrashScreen = fact("the app never shows the crash screen").expect(
+  not(visible(heading("Something went wrong"))),
+);
+
+export const membersCannotManageWebhookSecret = fact("members cannot manage the webhook secret")
+  .if(exists(Member.where({ role: "member", userId: actor.id })))
+  .expect(not(visible(button("Rotate secret"))));
+```
+
+`fact(name).expect(...)` is unconditional — it holds on every page. `fact(name).if(...conditions).expect(...)` holds only where the conditions match. An `.if()` that references `actor.id` needs exactly one `principal: true` entity or compile throws. Don't reach for declared facts to paper over a leaky generalized fact — the fix for that is a page-scoped consequence, above. Declared facts are for genuine app-wide rules.
 
 ### Scoping conventions
 
