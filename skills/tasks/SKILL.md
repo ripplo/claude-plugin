@@ -41,8 +41,9 @@ A finding is a task the explorer filed against an `explore-…` repro run — a 
 2. **Classify** — app bug vs test gap (the four-move tree lives in `/ripplo:run`):
    - **App bug** — the workflows are right; the app breaks when actions compose this way. Fix the app and file it with `npx ripplo report-bug`, passing the `explore-…` repro run id as `--run` to link the bug to the finding.
    - **Test gap** — a declaration is missing or wrong: an effect the action really has but never declared, a fact scoped too broadly, a given seeding an unintended state. Fix the declaration in `.ripplo/`.
+   - **Model drift** (a `model drift` / `unrunnable` finding — the planned step couldn't run because the live state didn't satisfy it) is a **test gap you must fix, never dismiss.** It means your declared model diverged from the app on a composed path: a missing effect declaration, or an over-broad or conflicting fact upstream. Find the missing/wrong declaration, fix it, and run `npx ripplo compile` until clean. A workflow passing on its own is **not** grounds to dismiss — the explorer's job is exactly the composed paths no author wrote. Dismiss a `finding` only when the evidence proves the app behavior is intended; a drift finding is about your model, not the app, so it is always fixable.
 3. **Confirm.** `npx ripplo replay <runId>` re-drives this exact action sequence against the app. A clean run means resolved. If you fixed a test gap (edited `.ripplo/`), replay may report the model changed — that's expected; confirm with `npx ripplo compile` and `npx ripplo run <affected>` instead.
-4. **Resolve or dismiss.** Once confirmed, `npx ripplo tasks resolve <id> --run <replayRunId>` with the proof run, or `dismiss` if the evidence proves the app behavior is intended. One root cause often resolves siblings — findings sharing a failing step usually share a cause, so re-check the other open findings before deep-diving them.
+4. **Resolve.** Once confirmed, `npx ripplo tasks resolve <id> --run <replayRunId>` with the proof run. You **cannot dismiss a finding** — the server rejects it. Dismissing would hide a bug that just reappears on the next trail, so a finding is resolved by fixing the app or the model, and it retires on its own once its trail no longer replays against the current lockfile. If the app behavior is genuinely intended, that is still a model fix — declare the intended behavior so the model stops flagging it. One root cause often resolves siblings — findings sharing a failing step usually share a cause, so re-check the other open findings before deep-diving them.
 
 **Add-vs-weaken guardrail.** Edits that **add** declarations (a missing effect, a new `when` branch, a covering workflow) are normal fixes. Edits that **delete or weaken** them (dropping a fact, removing a declared effect, coarsening a vocabulary) leave that behavior permanently unchecked — only do this after proving from app source that the current behavior is intended, and cite that proof. Never silence a finding by loosening the workflows when the app is wrong.
 
@@ -92,6 +93,7 @@ When you don't have the exact frame — a flash, a stagger, a transition — bin
 
 ```sh
 npx ripplo tasks list                     # open tasks for this dev session
+npx ripplo tasks list --wait              # block until the first explorer finding lands (or a timeout) — use this instead of sleeping to wait on the explorer
 npx ripplo tasks show <id>                # full message thread, with each message's run + frame anchor
 npx ripplo tasks start <id>               # mark picked up — shows in progress until resolved, dismissed, or clarified
 npx ripplo tasks comment <id> <body> --run <runId> --offset <ms> --element <rrwebId> [--as <name>]

@@ -28,6 +28,15 @@ Two primitives you'll reach for often (full detail in DSL.md):
 - **Who's signed in — `actor`.** `actor.set(handle)` in `given` = the test starts signed in as that seeded principal; as a _step_ = a mid-run switch (signs in, reloads). `actor.anonymous` = signed out. Sign-out is declared, not performed: assert `actor.is(actor.anonymous)` on the step that logs out / revokes the current session / deactivates the account. Ripplo observes the real signed-in identity every frame, so `actor.set` is self-verifying and an undeclared sign-out is caught on its own.
 - **Mutually-exclusive UI — `exclusive`.** Tabs, a toggle, settings sections where one state hides the others: declare the group once with `exclusive({ open: visible(a), closed: visible(b) })` (usually in `.ripplo/surfaces/`). Asserting one member auto-negates its siblings — skip the hand-written `not(visible(...))`.
 
+## Declare these up front — the model enforces them, so front-load them instead of discovering them by a red run
+
+These four are the authoring mistakes that most often turn into a compile or run failure you then have to diagnose. The model already catches each — save the round trip by getting them right the first time.
+
+- **A step that changes the page must assert the new url.** Any navigation — a `goto` or a click that lands on a different route — declares `url.path.is("/new-path")` on that step. Without it the model treats the new page as the old one and re-checks the prior page's `visible(...)` facts there, which fails on elements that legitimately aren't on the new page.
+- **Number inputs are `spinbutton`, not `textbox`.** An `<input type="number">` has the ARIA role `spinbutton`. Use `spinbutton("Amount")` to fill or assert it — `textbox("Amount")` won't match and the step fails to find the element.
+- **Sibling elements that appear and disappear together are an `exclusive` group.** If clicking one tab/toggle hides its siblings, declare them with `exclusive({...})` (above). Asserting them as independent `visible`/`not(visible)` facts trips surface-law — the model sees one page asserting contradictory containment and reports a fact conflict at compile.
+- **Two of the same entity visible on one page need page-unique locators.** If a page shows two rows of the same entity (or the same locator name maps to two things), the model can't tell which fact belongs to which. Scope each inside a named container — `inside(region("Owner"), ...)` — or use a distinguishing accessible name, so facts disambiguate. Same locator, same page, two meanings is a contradiction the compiler flags.
+
 ## Procedure
 
 1. **Name the user intent in one sentence** ("a user sets up their first task and marks it done"). That sentence is the workflow — everything the user does to accomplish it belongs in this one workflow's steps.
