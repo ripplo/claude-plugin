@@ -1,64 +1,64 @@
 ---
 name: setup
-description: "Initialize Ripplo from zero in a project: auth login → init → start the daemon → mount the engine adapter → first passing run. Use when a project has no `.ripplo/` directory yet, or when `npx ripplo doctor` reports the engine endpoint is missing."
+description: "Initialize Ripplo from zero: auth login → init → start the daemon → mount the engine adapter → first passing run. Use when a project has no `.ripplo/` yet, or when `npx ripplo doctor` reports the engine endpoint is missing."
 ---
 
 # Ripplo Setup
 
-Flow: **user logs in once → run `npx ripplo init` → start `npx ripplo daemon` in the background → mount the engine adapter → author and run a first workflow**.
+Flow: **log in → `npx ripplo init` → start `npx ripplo daemon` → mount the engine adapter → author + run a first workflow**.
 
-Most users have never used Ripplo. Narrate in plain language and explain why before asking for input or editing files. Avoid internal terms ("engine", "adapter", "entity", "given", "lockfile") in user-facing questions until you've defined them. Orientation up front: "Ripplo runs end-to-end browser tests against your app. Setup will log you in, scaffold a `.ripplo/` folder for workflow definitions, add a small adapter to your backend so tests can seed data and verify results, and run a first test to confirm everything works."
+Most users are new. Narrate in plain language; define internal terms before using them. Orientation: "Ripplo runs end-to-end browser tests. Setup logs you in, scaffolds `.ripplo/`, adds a small backend adapter so tests can seed data and verify results, and runs a first test."
 
-**Already-set-up repos:** if `.ripplo/workflows/` exists, skip step 2 (init) and step 8 (first run), but still satisfy steps 1, 3, and 5. Run `npx ripplo doctor` first and fix each failing check using the matching step — a rejected token or missing daemon still needs fixing.
+**Already set up** (`.ripplo/workflows/` exists): skip steps 2 and 8, still do 1, 3, 5. Run `npx ripplo doctor` first; fix each failing check via its step.
 
 ## 1. Authenticate
 
-`npx ripplo auth status`. Valid session → step 2. Missing or rejected → drive the login yourself; never ask the user to run the CLI:
+`npx ripplo auth status`. Valid → step 2. Missing/rejected → drive login yourself (never ask the user to run the CLI):
 
 ```sh
 npx ripplo auth login   # background Bash process
 ```
 
-It opens the browser, prints a verification URL + code, and polls until approved. Monitor the stdout for the URL and code, then tell the user: "I've opened your browser to sign in — approve the code shown (`<code>`), or visit `<url>` if it didn't open. I'll wait." On exit, verify with `npx ripplo auth status`.
+Monitor stdout for the URL + code, then tell the user: "I've opened your browser — approve the code (`<code>`), or visit `<url>`. I'll wait." Verify with `npx ripplo auth status`.
 
 ## 2. Collect answers, run `npx ripplo init`
 
-Fetch projects yourself — never ask the user to paste a project id:
+Fetch projects yourself — never ask for a project id:
 
 ```sh
-npx ripplo projects list   # JSON: { "projects": [{ "id", "name" }] }
+npx ripplo projects list   # { "projects": [{ "id", "name" }] }
 ```
 
-- **0 projects** — create one right here. `AskUserQuestion` for the name with the repo folder name as the suggested option, then `npx ripplo projects create <name>` (JSON: `{ "project": { "id", "name" } }`) and use the returned id. Multiple organizations makes create fail with the org list — re-run with `--org <id>` after asking the user which one.
-- **1+ projects** — `AskUserQuestion` with project **names** plus a "create a new project" option, map the choice back to its id (or create as above). Never auto-select — wiring the wrong project is painful to undo.
+- **0 projects** — `AskUserQuestion` for a name (suggest the repo folder name), `npx ripplo projects create <name>`, use the returned id. Multiple orgs → re-run with `--org <id>`.
+- **1+ projects** — `AskUserQuestion` with project **names** + "create new", map choice to id. Never auto-select.
 
-Then resolve the rest (detect first, confirm via `AskUserQuestion` in plain terms — "Where does your frontend run in dev?", "Does your backend run on the same port?"):
+Resolve the rest (detect, then confirm via `AskUserQuestion`):
 
-- **Env file** — the file the dev server already loads (Next.js: `.env.local`; Vite: `.env`/`.env.local` via `loadEnv`; Express/Fastify: `.env` via `dotenv`). Path is **relative to `.ripplo/`** — repo-root `.env.local` is `../.env.local`.
-- **App URL** (`RIPPLO_APP_URL`) — where the frontend loads in a browser; the base URL Playwright navigates to. In a split setup this is the **frontend** dev server. Default `http://localhost:3000`.
-- **Engine URL** (`RIPPLO_ENGINE_URL`, optional) — where Ripplo reaches the backend adapter. Defaults to `<app-url>/ripplo`; override when the backend runs on a different port (Vite on `:5173`, API on `:3000` → `http://localhost:3000/ripplo`).
+- **Env file** — the file the dev server loads (Next.js `.env.local`; Vite `.env`/`.env.local`; Express `.env`). Path is **relative to `.ripplo/`** — repo-root `.env.local` is `../.env.local`.
+- **App URL** (`RIPPLO_APP_URL`) — where the frontend loads in a browser. In a split setup, the frontend dev server. Default `http://localhost:3000`.
+- **Engine URL** (`RIPPLO_ENGINE_URL`, optional) — where Ripplo reaches the backend adapter. Defaults to `<app-url>/ripplo`; override when the backend runs on a different port.
 
 ```sh
 npx ripplo init --project <id> --env ../.env.local --app-url <url> [--engine-url <url>]
 ```
 
-Init scaffolds `.ripplo/`, writes `RIPPLO_APP_URL` / `RIPPLO_ENGINE_URL` / `RIPPLO_WEBHOOK_SECRET` / `ENABLE_RIPPLO_TESTING=true` to the env file, installs `@ripplo/testing` + `@ripplo/instrument`, compiles the lockfile, and ensures the Playwright browser. **Don't hand-write any of those files** — init owns scaffolding.
+Init scaffolds `.ripplo/`, writes env vars (`RIPPLO_APP_URL`, `RIPPLO_ENGINE_URL`, `RIPPLO_WEBHOOK_SECRET`, `ENABLE_RIPPLO_TESTING=true`), installs `@ripplo/testing` + `@ripplo/instrument`, compiles the lockfile, ensures the Playwright browser. **Don't hand-write any of those files.**
 
 ## 3. Start the daemon
 
-`npx ripplo daemon` is the long-running local test executor; it must stay alive for the dev session. Spawn via `Bash` with `run_in_background`, `cwd` = the directory containing `.ripplo/` (workspace root in monorepos). Tell the user it runs their tests locally and to leave it running. The app dev server is a separate process — make sure it's also up. Steps 7–8 depend on the daemon.
+`npx ripplo daemon` is the long-running local executor. Spawn via `Bash` `run_in_background`, `cwd` = directory containing `.ripplo/`. Tell the user to leave it running. The app dev server is a separate process — ensure it's up too.
 
 ## 4. Mount the engine adapter
 
-`ENABLE_RIPPLO_TESTING=true` (written by init) is the kill switch — the adapter refuses to run unless it's `true`, so test routes can never reach production. Before editing, tell the user: "I'm adding a small route to your backend (at `/ripplo`, behind the `ENABLE_RIPPLO_TESTING` flag). Tests use it to seed data and read back state for verification."
+`ENABLE_RIPPLO_TESTING=true` is the kill switch — the adapter refuses to run unless it's `true`. Tell the user: "I'm adding a route at `/ripplo`, behind `ENABLE_RIPPLO_TESTING`, for tests to seed data and read back state."
 
-The **engine funnel** maps each entity in `.ripplo/entities/` to a `seed` (create a row) and `read` (return this run's rows) impl against your DB. Create `<app>/src/test/engine.ts`:
+The **engine funnel** maps each entity to `seed`/`read` impls. Create `<app>/src/test/engine.ts`:
 
 ```ts
 import { createEngine } from "@ripplo/testing";
 import ripplo from "../../../../.ripplo/index.js";
-import { impls } from "./impls.js"; // per-entity { seed, read } — see /ripplo:create "Adding an entity"
-import { signIn, currentActor } from "./auth.js"; // auth impls — see "Seeding a signed-in session"
+import { impls } from "./impls.js";
+import { signIn, currentActor } from "./auth.js";
 
 export const engine = createEngine(
   ripplo,
@@ -67,11 +67,9 @@ export const engine = createEngine(
 );
 ```
 
-`impls` starts empty and grows one entry per entity — TS errors until every entity has one. `signIn` needs one impl per `principal: true` entity; `currentActor` is a single global impl. `teardown` deletes a run's seeded rows by run id.
+`impls` grows one entry per entity (TS errors until complete). `signIn` needs one impl per `principal: true` entity; `currentActor` is one global impl; `teardown` deletes a run's seeded rows by run id.
 
-Pick the adapter for your host and mount it at a path matching `RIPPLO_ENGINE_URL`. One subpath per framework — same `setup`/`sign-in`/`state`/`teardown` contract behind each: `@ripplo/testing/{express,fastify,koa,nestjs,nextjs,hono,elysia,vite}`. Import the named export from your framework's subpath (check its `.d.ts` for the exact name and signature). Most return a router/handler you mount; `nextjs` returns a `(Request) => Response` route handler, and `vite` is a config plugin — both shown below.
-
-Express (Fastify/Koa/Nest/Hono/Elysia follow the same shape):
+Mount the adapter for your host at a path matching `RIPPLO_ENGINE_URL`. Same contract behind each subpath: `@ripplo/testing/{express,fastify,koa,nestjs,nextjs,hono,elysia,vite}`. Import the named export from your framework's subpath (check its `.d.ts`). Express (Fastify/Koa/Nest/Hono/Elysia same shape):
 
 ```ts
 import { createEngineHandler } from "@ripplo/testing/express";
@@ -83,9 +81,9 @@ app.use(
 );
 ```
 
-**Bind `enabled` to the env flag — never hardcode `true`.** The mount path must match the `RIPPLO_ENGINE_URL` path.
+**Bind `enabled` to the env flag — never hardcode `true`.** Mount path must match `RIPPLO_ENGINE_URL`.
 
-**Client-only app with no backend server (a Vite SPA talking straight to a database or API from the browser)?** Don't stand up an Express server — mount the engine on the Vite dev server with the Vite plugin. The impls still run server-side in the Vite process (use a privileged key to seed/read your data store):
+**Client-only Vite SPA (no backend)?** Mount on the Vite dev server; impls run server-side in the Vite process:
 
 ```ts
 // vite.config.ts
@@ -97,30 +95,30 @@ export default defineConfig({
 });
 ```
 
-The plugin loads your env file itself — it gates on `ENABLE_RIPPLO_TESTING` and reads `RIPPLO_WEBHOOK_SECRET`, so you pass only `engine` (and an optional `path`), no `enabled`. Same dev server, same port — no second process, no port juggling, and editing `engine` impls auto-restarts the server (Vite watches config imports). `RIPPLO_ENGINE_URL` is just `<app-url>/ripplo`.
+The plugin loads your env file, gates on `ENABLE_RIPPLO_TESTING`, reads `RIPPLO_WEBHOOK_SECRET` — pass only `engine` (+ optional `path`). `RIPPLO_ENGINE_URL` is `<app-url>/ripplo`.
 
-`@ripplo/instrument` (installed by init) is a **server-side** span preload — `node --import @ripplo/instrument`. A client-only app has no server to preload, so skip it there. The browser-side `ready()` signal is separate and still required (see below).
+`@ripplo/instrument` is a **server-side** span preload — skip for a client-only app. Browser-side `ready()` is still required (step 5).
 
 ### Seeding a signed-in session
 
-Most workflows need a signed-in user, and this is the steepest part of setup. Auth is its own contract — `seed` just creates the row, it never returns a session. Signing in is two impls on a `principal: true` entity (usually `user`):
+Auth is its own contract — `seed` creates the row, never a session. Two impls on a `principal: true` entity (usually `user`):
 
-- **`signIn(row) => Session`** — one per principal entity. Mints a browser session your app accepts as authentic: `{ cookies, origins }` (Playwright storage-state shape). Called when a workflow's `given` (or a mid-run `actor.set` step) targets that principal.
-- **`currentActor(session) => id | null`** — one global impl. Resolves the live browser cookies to the signed-in user's id, or `null` when signed out. Ripplo calls it every frame (it rides the `/state` read) so it can verify who's signed in — read the identity fresh from the given cookies, never a cache.
+- **`signIn(row) => Session`** — one per principal. Mints a browser session (`{ cookies, origins }`, Playwright storage-state shape). Called when a `given` or mid-run `actor.set` targets that principal.
+- **`currentActor(session) => id | null`** — one global. Resolves live cookies to the signed-in id (or `null`). Ripplo calls it every frame — read fresh, never cache.
 
-Filling `signIn` means reverse-engineering your app's auth; `currentActor` is the read side of the same code. Work through this checklist in order, reading the app's own auth code rather than guessing:
+Checklist, reading the app's own auth code:
 
-1. **Find where the app verifies a session.** The middleware or helper that turns a request into a user (`getUser`, `auth()`, a session middleware). `signIn` produces what it reads; `currentActor` calls it (or its logic) on the given cookies.
-2. **Token or session row?** JWT-cookie apps (NextAuth JWT strategy, custom JWT) need `signIn` to mint a token with the app's signing secret. Session-table apps need it to insert a session row and set its id as the cookie.
-3. **Exact cookie names and attributes.** Copy them from the app's config — NextAuth uses different names with and without HTTPS (`next-auth.session-token` vs `__Secure-...`), and a wrong name fails silently.
-4. **Identity matching.** Whatever claim the verifier reads (`token.sub`, `session.userId`) must equal the seeded user's id — trace how the app's own login sets it. `currentActor` must return that same id.
-5. **Guards on a fresh session.** MFA flags, email verification, onboarding state, feature gates — seed the user in a state that passes every one, or the first navigation redirects and every test fails on the wrong page.
-6. **Verify seeded assumptions against the real database.** Roles, groups, and permissions from a seed script may not match this environment (group 5 is admin in one database and a no-permission user in another). A permissions gap shows up as flaky 403s and half-rendered pages, not a clear failure — query the actual rows before trusting a green run.
+1. **Find where the app verifies a session** (`getUser`, `auth()`, session middleware). `signIn` produces what it reads.
+2. **Token or session row?** JWT-cookie apps → mint a token with the app's signing secret. Session-table apps → insert a session row, set its id as the cookie.
+3. **Exact cookie names + attributes.** Copy from app config (NextAuth differs with/without HTTPS) — a wrong name fails silently.
+4. **Identity matching.** The verifier's claim (`token.sub`, `session.userId`) must equal the seeded user's id; `currentActor` returns that same id.
+5. **Guards on a fresh session** (MFA, email verification, onboarding, feature gates) — seed a state that passes every one.
+6. **Verify seeded roles/permissions against the real database** — mismatches show as flaky 403s, not clear failures. Query the actual rows.
 
-**Auth in localStorage, not cookies (any app that keeps its token in the browser rather than a cookie)?** Ripplo captures the browser session as **cookies** every frame. An app that keeps its token only in localStorage hands Ripplo an empty session, so `currentActor` is never called and every run fails with `signed-in actor showed ∅ but the test expected "<id>"` — which reads like an app bug but is really "no session was captured." Until Ripplo captures localStorage directly, work around it by having the app mirror the signed-in id into a cookie Ripplo can read — a test-only bridge, gated by the flag so it never runs in production:
+**Auth in localStorage, not cookies?** Ripplo captures cookies every frame; a localStorage-only token gives an empty session and every run fails with `signed-in actor showed ∅ but the test expected "<id>"`. Mirror the id into a cookie, gated by the flag:
 
 ```ts
-// where your app learns who is signed in (auth state listener), gated by the flag
+// where your app learns who is signed in, gated by the flag
 if (import.meta.env.VITE_ENABLE_RIPPLO_TESTING === "true") {
   document.cookie = userId
     ? `ripplo-actor=${userId}; path=/; SameSite=Lax`
@@ -128,9 +126,9 @@ if (import.meta.env.VITE_ENABLE_RIPPLO_TESTING === "true") {
 }
 ```
 
-Then `signIn` sets the same cookie in the returned session's `cookies`, and `currentActor(session)` reads `ripplo-actor` back. Now the per-frame capture sees a real session and resolves the id. Only the id needs to travel — the app's actual auth still lives in localStorage.
+Then `signIn` sets the same cookie; `currentActor` reads `ripplo-actor` back. Only the id travels — real auth stays in localStorage.
 
-Add the preload to the backend's dev script so runs capture backend spans alongside browser actions (skip for a client-only app — no server to preload):
+Add the preload to the backend dev script (skip for client-only):
 
 ```sh
 node --import @ripplo/instrument server.js
@@ -138,29 +136,23 @@ tsx watch --import @ripplo/instrument src/index.ts
 NODE_OPTIONS="--import @ripplo/instrument" next dev
 ```
 
-Frameworks with a register hook (Next.js `instrumentation.ts`) can call `register` from `@ripplo/instrument/register` instead. The preload is dormant when no daemon is running — safe to leave permanently. Restart the dev server after adding it.
+Frameworks with a register hook (Next.js `instrumentation.ts`) can call `register` from `@ripplo/instrument/register`. Restart the dev server after adding it.
 
 ## 5. Signal when your app is ready
 
-Ripplo waits for your app to say it's interactive before it starts checking anything on a page. Without that signal it can only guess when the app has loaded, and a slow cold boot — especially with several runs going at once — eats the check budget, so tests time out on elements that were about to appear. Your app owns this signal.
-
-Before editing, tell the user: "I'm adding one line so the test runner waits until your app has actually finished loading before it checks the page, instead of guessing."
-
-Call `ready()` once the first real screen has rendered — not while a loading skeleton is up:
+Ripplo waits for your app to say it's interactive. Call `ready()` once the first real screen has rendered — not on a loading skeleton:
 
 ```ts
 import { ready } from "@ripplo/testing";
 
-ready(); // at your app's genuine "interactive" point
+ready();
 ```
 
-Put it at the app's true ready point for your framework:
+- **TanStack/React Router** — after the first route resolves: `router.subscribe("onResolved", () => ready())`.
+- **Next.js** — in `instrumentation-client.ts` (not a layout effect/client component — those don't fire behind a tunnel).
+- **Plain SPA** — after the top-level data load settles.
 
-- **TanStack Router / React Router** — after the first route resolves with its data: `router.subscribe("onResolved", () => ready())`.
-- **Next.js** — in `instrumentation-client.ts`, not a layout effect or a client component. A component rendered in the layout is loaded lazily in dev, and turbopack only evaluates it once the HMR websocket connects. Behind a tunnel that websocket can't connect, so the component never runs and `ready()` never fires. `instrumentation-client.ts` runs during the initial client bootstrap, so it fires with or without HMR.
-- **Plain SPA** — right after the top-level data load settles and you render real content.
-
-Gate the call behind the same build-time testing flag your app already uses (`VITE_ENABLE_RIPPLO_TESTING`, `NEXT_PUBLIC_ENABLE_RIPPLO_TESTING`, …) so it's a no-op in production. This is **required**: if `ready()` never fires within 30s of a page load, every run fails with `appNotReady`.
+Gate behind the build-time testing flag (`VITE_ENABLE_RIPPLO_TESTING`, `NEXT_PUBLIC_ENABLE_RIPPLO_TESTING`, …). **Required**: no `ready()` within 30s → every run fails with `appNotReady`.
 
 ## 6. Install the pre-commit hook
 
@@ -178,23 +170,23 @@ With husky/lefthook/simple-git-hooks, gate the same check on staged `.ripplo/**/
 
 ## 7. Verify
 
-`npx ripplo doctor` — resolve every issue before moving on. Key checks: dev server reachable at `RIPPLO_APP_URL`, dev session live. Briefly tell the user what doctor confirmed.
+`npx ripplo doctor` — resolve every issue. Key checks: dev server reachable at `RIPPLO_APP_URL`, dev session live.
 
-## 8. First workflow (first-time setup only)
+## 8. First workflow (first-time only)
 
-Skip if `.ripplo/workflows/` already has workflows. Otherwise setup isn't complete until **one run passes** — the web onboarding gates its Continue button on a run with `status=completed` and `hasFailed=false`. Tell the user up front you'll write and run a tiny first workflow to unblock it.
+Skip if `.ripplo/workflows/` has workflows. Otherwise one run must pass — web onboarding gates Continue on a run with `status=completed`, `hasFailed=false`.
 
-- Hand off to `/ripplo:create` — it owns authoring and running.
-- Pick a trivial smoke workflow (load the entry route, assert a top-level element). If the entry surface is non-obvious, ask via `AskUserQuestion`.
-- `npx ripplo run <workflow-slug>[/<test-slug>]`. If it fails, debug via `.ripplo/debug/<runId>/behavior.jsonl` — don't leave the user staring at a red first run.
+- Hand off to `/ripplo:create`.
+- Pick a trivial smoke workflow (load the entry route, assert a top-level element). Non-obvious entry → `AskUserQuestion`.
+- `npx ripplo run <workflow-slug>[/<test-slug>]`. Fails → debug via `.ripplo/debug/<runId>/behavior.jsonl`.
 
-A green run auto-enables the background explorer — the third gate. From here on it walks composed paths no workflow author wrote, filling coverage gaps and catching bugs that only surface when actions combine, and files anything it finds as a task. So setup leaves the user with a passing first workflow and an explorer probing beyond it in the background. Triage its findings via `/ripplo:tasks`.
+A green run auto-enables the background explorer (third gate) — it walks composed paths and files findings as tasks. Triage via `/ripplo:tasks`.
 
 ## Rules
 
 - Never bypass webhook signature checking or hardcode the secret.
-- Never hardcode `enabled: true`.
-- Every app must call `ready()` from `@ripplo/testing` when it's interactive — runs fail with `appNotReady` otherwise. Signal after real content renders, not on a loading skeleton, and gate it behind the build-time testing flag.
-- Adapter mount path must match the `RIPPLO_ENGINE_URL` suffix — mismatches silently fail.
-- The daemon runs from the directory containing `.ripplo/` — set Bash `cwd` accordingly in monorepos.
-- **Worktrees are self-contained** (own DevSession, scope, debug artifacts), but env files don't carry over and dev-server ports collide between siblings. In a fresh worktree: copy the env file from main (or symlink a shared one), pick a distinct port, and update both `RIPPLO_APP_URL` and `RIPPLO_ENGINE_URL` to it. `npx ripplo doctor` flags missing env files.
+- Never hardcode `enabled: true` — bind to the env flag.
+- Every app must call `ready()` when interactive (else `appNotReady`); after real content, gated by the build-time flag.
+- Adapter mount path must match the `RIPPLO_ENGINE_URL` suffix.
+- Daemon runs from the directory containing `.ripplo/` — set Bash `cwd` accordingly.
+- **Worktrees:** env files don't carry over, ports collide. Copy the env file from main, pick a distinct port, update `RIPPLO_APP_URL` + `RIPPLO_ENGINE_URL`.
