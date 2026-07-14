@@ -37,7 +37,7 @@ Re-running tells you nothing unless you changed something. Don't pipe `npx rippl
 
 ### Start with explain
 
-`npx ripplo explain <runId>` — first move on any failed run. Per failing check, grouped by step: the failed check, expected vs actual for a backend mismatch, where a fact was learned from, the surrounding network/console/span events, and the exact `snapshot --at` frame. The runId is in the run output. Auto-pulls the stream on demand (local and cloud alike). Drop to the raw stream only for detail `explain` didn't surface.
+`npx ripplo explain <runId>` — first move on any failed run. Per failing check, grouped by step: the failed check, expected vs actual for a backend mismatch, where a fact was declared, the surrounding network/console/span events, and the exact `snapshot --at` frame. The runId is in the run output. Auto-pulls the stream on demand (local and cloud alike). Drop to the raw stream only for detail `explain` didn't surface.
 
 ### The behavior stream
 
@@ -105,7 +105,7 @@ Pick the most upstream failure (given/seed over a test-specific selector), fix +
   - `strict` = must match immediately; `eventual` = may lag, Ripplo waits. A wrong intermediate value under `strict` = app bug.
   - Server-chosen value → `changed()`, or `increased()`/`decreased()` when the direction matters.
   - Genuine flicker through wrong values (rare) → `consistency: "eventual"`.
-- **Fact violation** — "A fact learned from <workflow> … never held here". If your workflow legitimately reaches that URL in a different state, make the originating assertion conditional with a `when` branch.
+- **Fact violation** — a declaration from another workflow contradicted here. If your workflow legitimately reaches that state with a different outcome, the originating step is under-declared (missing a `checked`/`not(visible(...))`/state pin that distinguishes the two states) or needs a `when` branch — harden the declaration, never weaken it.
 - **Duplicate locator (strict mode)** — `resolved to 2 elements`. Scope: `inside(main(), button("New"))`, `inside(row(schedule.name), button("Delete"))`. Add an app `aria-label`; don't fall back to `testId`.
 - **Given / seed wrong** — check the engine impl's `seed`/`read`, not the workflow.
 - **Seed exists but action does nothing** — the click runs, no mutation lands, no network request; the button is dead because the app needs more state (a cancellable booking, a confirmed status, an unlocking toggle). Snapshot the frame, add the missing state to the seed impl.

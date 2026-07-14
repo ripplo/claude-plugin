@@ -200,14 +200,11 @@ Isolation lives in the **engine impl**: seed run-scoped ids (`testId(runId, "tas
 
 ## Facts
 
-Every `visible`/`text`/`value` assertion becomes a **fact**: a `when ⇒ consequence` rule re-checked on every later step whose state matches. Facts are keyed by their consequence and grouped across the suite by it — this is what the background explorer composes paths from.
+Every `visible`/`text`/`value` assertion becomes a **fact**: a `when ⇒ consequence` rule where the `when` is the full declared state at that step. Facts fire on a later state only when that whole precondition holds — **there is no generalization**: the model never invents broader rules from your assertions, never claims anything on a state it hasn't been told about, and stays silent where it knows nothing. Declarations are the single source of truth; the explorer's findings are contradictions of them, never guesses.
 
-When two+ workflows assert the same consequence the model **generalizes**, keeping only shared conditions. `visible(button("Save"))` on two pages becomes a global claim and fails on a third page with no Save. Intended strictness. A fact is global unless its consequence is page-specific:
+Because facts carry their full origin state, what matters is declaring **effects where they happen** (see Scoping conventions) — a well-declared step is reusable on every composed path that genuinely reaches the same state.
 
-- Global capability → assert it bare.
-- Page-specific element → give the consequence a page-unique identity: `visible(inside(dialog("Duplicate event type"), button("Continue")))`. Add the `aria-label`/landmark to the app when none exists.
-
-Debug: a `fact` violation from `npx ripplo compile` prints both contradicting consequences and every producing test with its conditions — the producer missing a shared pin broadened the fact; add that pin or split with a when branch. At run time, `npx ripplo explain <runId>` names the workflows that taught the fact and tags each `inferred` (one producer), `learned` (generalized from 2+), or `declared`.
+Debug: a `fact` violation from `npx ripplo compile` prints both contradicting consequences, the state they share, and per producing test what it adds beyond the shared state — the producer adding nothing is missing the pin that distinguishes its state; add that declaration (often a `checked(...)`/`not(visible(...))` the step under-declared) or split with a when branch.
 
 ### Declared facts
 
@@ -223,11 +220,13 @@ export const membersCannotManageWebhookSecret = fact("members cannot manage the 
   .expect(not(visible(button("Rotate secret"))));
 ```
 
-`fact(name).expect(...)` holds everywhere; `.if(...conditions).expect(...)` only where conditions match. An `.if()` referencing `actor.id` needs exactly one `principal: true` entity. Don't use declared facts to paper over a leaky generalized fact — page-scope the consequence instead.
+`fact(name).expect(...)` holds everywhere; `.if(...conditions).expect(...)` only where conditions match. An `.if()` referencing `actor.id` needs exactly one `principal: true` entity. Declared facts are for genuine app-wide laws — don't reach for one to patch a finding a workflow declaration can fix locally.
 
 ### Scoping conventions
 
-- **Groupings that open/close (modal, drawer, menu, tab, accordion)** — model as a **surface**, never hand-list the hidden background (hiding 2+ elements at once is a `surface` compile error). `const editRepo = surface(dialog("Edit repository"), { overlay: true })`; open with `visible(editRepo)`, scope contents with `inside(editRepo, ...)`, close with `not(visible(editRepo))`. Contents are forgotten on close — re-assert `visible(inside(surface, ...))` after reopening anything a later step touches. `{ overlay: true }` = covers the page (modal, backdropped drawer, occluding menu); `{ overlay: false }` = a coexisting panel (tab, accordion) that always needs `inside(...)`. Same container can't be both. Full ref: DSL.md.
+- **Groupings that open/close (modal, drawer, menu, tab, accordion)** — model as a **surface**, never hand-list the hidden background (hiding 2+ elements at once is a `surface` compile error). `const editRepo = surface(dialog("Edit repository"), { overlay: true })`; open with `visible(editRepo)`, scope contents with `inside(editRepo, ...)`, close with `not(visible(editRepo))`. Contents are forgotten on close — re-assert `visible(inside(surface, ...))` after reopening anything a later step touches. `{ overlay: true }` = covers the page (modal, backdropped drawer, occluding menu — includes dropdowns like a user menu; this also stops the explorer from re-clicking the opener behind the open overlay); `{ overlay: false }` = a coexisting panel (tab, accordion) that always needs `inside(...)`. Same container can't be both. Opening an overlay also drops model knowledge of the page behind it — after closing it, re-assert outside elements later steps touch. Full ref: DSL.md.
+- **Effects declared where they happen** — an element that appears/enables because of an action gets declared on that action's step, both directions. Dirty-form Save: `fill(...).expect(visible(button("Save")))`, the save/discard click expects `not(visible(button("Save")))`, and the clean initial state declares `not(visible(button("Save")))` at the goto. A leave-prompt conditional then falls out of the guards for free — no special machinery. Bare clicks with invisible side effects (selecting an item that enables a confirm button) declare them too: `checked(...)` on the item, `disabled(...)`→`enabled(...)` on the button; if the app exposes no aria state, add it to the app.
+- **Toggle buttons (same button opens and closes)** — pin the backing singleton in the given (`devPanel.of("closed")`) so the opening transition is guarded, and cover open/switch/close in one dedicated toggle workflow so composed paths predict the close.
 - **Transient toast/spinner** — `ephemeral(...)`: `ephemeral(text(testId("toast-success"), "Saved"))`. Checked at that step, never promoted to a fact. Still carry the durable proof as `Entity.updated`. Also fits step-local exact-value evidence that shouldn't carry (a mid-edit validation alert, a `value(...)` the flow changes next step). Wraps UI predicates only, grants no reachability — to click, assert a normal `visible(...)`.
 - **Post-delete absence** — assert `not(visible(...))` on the delete step itself.
 - **Generic shared name** — a `button("Save")` on many pages is global; scope inside `main(...)` or a region.

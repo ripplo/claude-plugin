@@ -33,13 +33,18 @@ Clear every open task exactly one way: **resolve** with proof, **clarify**, or *
 
 ## Explorer findings
 
-Category names what broke: **crash** (app threw), **data rule** (cross-entity reference stopped holding), **fact** (learned page expectation failed), **frame** (visual defect). Triage one at a time:
+Category names what broke: **crash** (app threw), **data rule** (cross-entity reference stopped holding), **fact** (a declared expectation contradicted), **frame** (visual defect). Every finding is a contradiction of something a workflow declared — the explorer never files findings from ignorance (unknown state is silent) and never guesses. Triage one at a time:
 
 1. **Explain.** `npx ripplo explain <runId>` reads the repro run back (auto-pulls `behavior.jsonl` from the server). Groups failing checks by step, gives expected vs actual, prints the exact `snapshot --at`. Drop to raw `behavior.jsonl` / `npx ripplo snapshot` only for missing detail.
 2. **Classify** (four-move tree in `/ripplo:run`):
-   - **App bug** — fix the app, file with `npx ripplo report-bug --run <explore-runId>` to link the bug to the finding.
-   - **Test gap** — a missing/wrong declaration (undeclared effect, over-broad fact, wrong given). Fix in `.ripplo/`.
-   - **Model drift / unrunnable** — a **test gap you must fix, never dismiss**: your model diverged from the app on a composed path. Fix the declaration, run `npx ripplo compile` until clean. A workflow passing alone is not grounds to dismiss.
+   - **App bug** — fix the app, file with `npx ripplo report-bug --run <explore-runId>` to link the bug to the finding. (Duplicate/stacked UI like doubled toasts is usually this — e.g. a toast without a stable id.)
+   - **Model gap** — a missing/wrong declaration. **Hardening the workflow declarations is always the remedy** — the model is sound and expressive enough; never conclude a finding "needs new machinery" or is "inexpressible". Match the shape:
+     - Outcome depends on seeded state the given never covers → enrich `given` with `Entity.maybe(...)`/a singleton + `when(branch...)` per outcome. The branch condition must mirror the app's actual rule — read the app source.
+     - Element appears/enables as an effect of an action (dirty-form Save, leave-prompt, reveal) → declare it on the acting step: the fill that reveals expects `visible(...)`, the save/discard that clears expects `not(visible(...))`, the initial clean state declares `not(visible(...))`. Dirtiness is an effect, not a state law.
+     - A bare click with an invisible side effect (selection, toggle) lets the explorer skip it → declare the effect (`checked(...)`, the confirm button's `disabled(...)`→`enabled(...)` gate). If the app exposes no aria state for it, add it — that's an accessibility fix too.
+     - Re-clicking a modal/menu opener → model the container as `surface(..., { overlay: true })`; toggle-style panels → pin their singleton in the given and cover open/switch/close in a dedicated toggle workflow.
+     - A row/element revealed by a tab or filter switch → declare the reveal on that step.
+   Fix the declaration, run `npx ripplo compile` until clean. A workflow passing alone is not grounds to dismiss.
 3. **Confirm.** `npx ripplo replay <runId>` re-drives the sequence. Clean = resolved. Edited `.ripplo/`? Confirm with `npx ripplo compile` + `npx ripplo run <affected>`.
 4. **Resolve.** `npx ripplo tasks resolve <id> --run <replayRunId>`. **You cannot dismiss a finding** — the server rejects it; intended behavior is still a model fix (declare it). One root cause often resolves sibling findings sharing a failing step.
 
