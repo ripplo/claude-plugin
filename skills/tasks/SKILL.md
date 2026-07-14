@@ -44,7 +44,7 @@ Category names what broke: **crash** (app threw), **data rule** (cross-entity re
      - A bare click with an invisible side effect (selection, toggle) lets the explorer skip it → declare the effect (`checked(...)`, the confirm button's `disabled(...)`→`enabled(...)` gate). If the app exposes no aria state for it, add it — that's an accessibility fix too.
      - Re-clicking a modal/menu opener → model the container as `surface(..., { overlay: true })`; toggle-style panels → pin their singleton in the given and cover open/switch/close in a dedicated toggle workflow.
      - A row/element revealed by a tab or filter switch → declare the reveal on that step.
-   Fix the declaration, run `npx ripplo compile` until clean. A workflow passing alone is not grounds to dismiss.
+       Fix the declaration, run `npx ripplo compile` until clean. A workflow passing alone is not grounds to dismiss.
 3. **Confirm.** `npx ripplo replay <runId>` re-drives the sequence. Clean = resolved. Edited `.ripplo/`? Confirm with `npx ripplo compile` + `npx ripplo run <affected>`.
 4. **Resolve.** `npx ripplo tasks resolve <id> --run <replayRunId>`. **You cannot dismiss a finding** — the server rejects it; intended behavior is still a model fix (declare it). One root cause often resolves sibling findings sharing a failing step.
 
