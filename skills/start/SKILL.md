@@ -31,7 +31,7 @@ Switches live — `npx ripplo executor <local|cloud>` takes effect next run, no 
 `npx ripplo daemon` takes: `start` (default), `stop`, `restart`, `status`.
 
 - **`status`** — running or not, version, active/queued runs, explorer state.
-- **`npx ripplo explore` / `on` / `off`** — show/toggle the background explorer (needs a live daemon). Runs on either executor. A green `npx ripplo run` auto-enables it.
+- **`npx ripplo explore` / `on` / `off`** — show/toggle the background explorer (needs a live daemon). Runs on either executor.
 - **`stop`** — signals the daemon, waits up to 10s. Use when a stale daemon holds the dev session.
 - **`restart`** — foreground, for a human's terminal. **As an agent, don't use it** — the start half runs forever. Instead: `npx ripplo daemon stop`, then spawn `npx ripplo daemon` with `run_in_background`.
 

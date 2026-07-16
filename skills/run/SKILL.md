@@ -20,7 +20,7 @@ App dev server + `npx ripplo daemon` (run refuses otherwise). `npx ripplo doctor
 
 ## Background explorer — the third gate
 
-A green `npx ripplo run` auto-enables it — walks composed paths no author wrote, catches combine-only bugs. Leave it on. Findings arrive as `finding` tasks → `/ripplo:tasks`.
+It walks composed paths no author wrote, catches combine-only bugs. Leave it on. Findings arrive as `finding` tasks → `/ripplo:tasks`.
 
 ```sh
 npx ripplo explore                     # show state

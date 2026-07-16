@@ -180,7 +180,7 @@ Skip if `.ripplo/workflows/` has workflows. Otherwise one run must pass — web 
 - Pick a trivial smoke workflow (load the entry route, assert a top-level element). Non-obvious entry → `AskUserQuestion`.
 - `npx ripplo run <workflow-slug>[/<test-slug>]`. Fails → debug via `.ripplo/debug/<runId>/behavior.jsonl`.
 
-A green run auto-enables the background explorer (third gate) — it walks composed paths and files findings as tasks. Triage via `/ripplo:tasks`.
+Turn on the background explorer (third gate) with `npx ripplo explore on` — it walks composed paths and files findings as tasks. Triage via `/ripplo:tasks`.
 
 ## Rules
 

@@ -9,7 +9,7 @@ A task is an open-ended request anchored to a moment in a run (a run, a frame, u
 
 The **background explorer** files tasks too: local and cloud workers walk guided random paths over enabled actions no workflow author wrote. Every failed check becomes a **finding** — deduped by signature, opened as a task of kind `finding` anchored to its `explore-…` repro run. Findings don't wake you but block session end until triaged.
 
-Explorer is always-on: a green `npx ripplo run` auto-enables it. `npx ripplo explore on|off` toggles, but a manual off lasts only until the next green run. Durable off is `npx ripplo hooks pause` (also silences the other gates).
+Explorer toggles with `npx ripplo explore on|off` — never auto-enabled. `npx ripplo hooks pause` also silences the other gates.
 
 ## Task lifecycle
 
