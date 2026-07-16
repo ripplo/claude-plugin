@@ -195,6 +195,7 @@ Isolation lives in the **engine impl**: seed run-scoped ids (`testId(runId, "tas
 - Numeric copy asserts the formula: `text(pill, s\`Open tasks ${count(Task.where({ status: "open" }))}\`)`.
 - Every locator name is a tagged template: `button\`Edit ${schedule.name}\``.
 - Scope with `inside(scope, target)`: `inside(row(schedule.name), button("Delete"))`, `inside(main(), button("New"))` for duplicate CTAs. Container rows usually need an app `aria-label`.
+- Elements inside an iframe: `inside(frame(el), target)` where `el` locates the iframe element. Legal only as an `inside` scope; frame-scoped elements never share identity with same-named outer-page elements. Cross-origin iframes run and assert fine but don't record for replay.
 - `arbitrary(...)` for seeded values; reference handles directly (`project.id`) — never hardcode ids.
 - The setup/act boundary is `given:` vs `steps:`.
 
