@@ -24,7 +24,7 @@ Switches live — `npx ripplo executor <local|cloud>` takes effect next run, no 
 4. Wait 3–5s, re-run `npx ripplo doctor`. Green → confirm to the user.
 5. Still red with the daemon running: read its log via `BashOutput`, surface it. Common causes: auth token, env file, server unreachable, wrong cwd. Stop and report — don't loop.
 6. Dev session green: `npx ripplo tasks list`, pick up anything open, mark each with `npx ripplo tasks start <id>`.
-7. Arm the task watcher: `Monitor` tool with `command: "npx ripplo tasks watch"`, `persistent: true`, `description: "new ripplo tasks"`, `cwd` = directory containing `.ripplo/`. Each event is a new task, reopen, or user reply (not a finding — those triage via `/ripplo:tasks`). Delegate to a subagent when cleanly delegable. `TaskStop` if the user asks.
+7. Arm the task watcher: `Monitor` tool with `command: "npx ripplo tasks watch"`, `persistent: true`, `description: "new ripplo tasks"`, `cwd` = directory containing `.ripplo/`. Each event is a new user task, reopen, or user reply. Explorer findings never fire the watcher — poll `npx ripplo tasks list` for those and triage via `/ripplo:tasks`. Delegate to a subagent when cleanly delegable. `TaskStop` if the user asks.
 
 ## Daemon lifecycle
 

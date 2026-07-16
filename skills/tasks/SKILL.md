@@ -13,7 +13,7 @@ Explorer toggles with `npx ripplo explore on|off` — never auto-enabled. `npx r
 
 ## Task lifecycle
 
-Four states. The task watcher (`/ripplo:start`) wakes you when one needs attention; the done-check blocks session end while any task is open.
+Four states. The task watcher (`/ripplo:start`) wakes you when a user task needs attention — never on an explorer finding, poll `npx ripplo tasks list` for those. The done-check blocks session end while any task is open.
 
 - **open** — needs you. New, reopened, or user replies. `npx ripplo tasks start <id>` marks it in progress (user can no longer edit it — start when you begin, not when you notice).
 - **reopened** — your resolution didn't hold. Revisit the fix, find what you missed, prove it again.
