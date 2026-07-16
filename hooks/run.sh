@@ -6,6 +6,9 @@ fi
 if [ -f "$root/node_modules/ripplo/dist/index.js" ]; then
   exec node "$root/node_modules/ripplo/dist/index.js" hook "$1"
 fi
+if [ -x "$root/node_modules/.bin/ripplo-hook" ]; then
+  exec "$root/node_modules/.bin/ripplo-hook" "$1"
+fi
 if [ -x "$root/node_modules/.bin/ripplo" ]; then
   exec "$root/node_modules/.bin/ripplo" hook "$1"
 fi
