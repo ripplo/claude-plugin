@@ -33,7 +33,7 @@ Clear every open task exactly one way: **resolve** with proof, **clarify**, or *
 
 ## Explorer findings
 
-Category names what broke: **crash** (app threw), **data rule** (cross-entity reference stopped holding), **fact** (a declared expectation contradicted), **frame** (visual defect). Every finding is a contradiction of something a workflow declared — the explorer never files findings from ignorance (unknown state is silent) and never guesses. Triage one at a time:
+Category names what broke: **crash** (app threw), **data rule** (cross-entity reference stopped holding), **fact** (a declared expectation contradicted), **frame** (an unexpected change — something changed that no step declared). Every finding is a contradiction of something a workflow declared — the explorer never files findings from ignorance (unknown state is silent) and never guesses. Triage one at a time:
 
 1. **Explain.** `npx ripplo explain <runId>` reads the repro run back (auto-pulls `behavior.jsonl` from the server). Groups failing checks by step, gives expected vs actual, prints the exact `snapshot --at`. Add `--full` for the whole picture in one place: the world the model set up (seeded entities with their pinned values, absences, singletons, actor) plus a step-by-step timeline of what happened (each step's action, source workflow, page url, state changes, and which checks held or broke). Reach for `--full` when a finding depends on starting state or a composed path, instead of reconstructing it from raw `behavior.jsonl` and the database.
 2. **Classify** (four-move tree in `/ripplo:run`):

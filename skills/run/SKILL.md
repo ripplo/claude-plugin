@@ -41,14 +41,15 @@ Re-running tells you nothing unless you changed something. Don't pipe `npx rippl
 
 ### The behavior stream
 
-`.ripplo/debug/<runId>/behavior.jsonl` — one causal event per line, discriminated by `kind`. `explain`/`snapshot`/`tasks show` auto-pull it when missing; fetch alone with `npx ripplo pull <runId>`. Kinds: `action`, `assertion` (`outcome`), `finding` (`subject`/`expected`/`actual`), `rrweb`, `network`, `console`/`error`, `span`.
+`.ripplo/debug/<runId>/behavior.jsonl` — one causal event per line, discriminated by `kind`. `explain`/`snapshot`/`tasks show` auto-pull it when missing; fetch alone with `npx ripplo pull <runId>`. Kinds: `action`, `check` (one per step check — `family` element/content/scalar/state/frame/action/dataRule, `outcome.kind` passed/failed with a typed `reason`), `stepError` (browser/engine infrastructure error), `finding` (model findings only: unrunnable/impossibleAction/liftVisibility), `step`, `rrweb`, `network`, `console`/`error`, `span`, `meta`.
 
 Slice it, don't dump it:
 
 ```sh
-grep '"outcome":"failed"' .ripplo/debug/<runId>/behavior.jsonl     # failing assertion
-grep '"kind":"error"'   .ripplo/debug/<runId>/behavior.jsonl       # page errors
-grep '"kind":"network"' .ripplo/debug/<runId>/behavior.jsonl       # 4xx/5xx
+grep '"kind":"failed"'    .ripplo/debug/<runId>/behavior.jsonl     # failed checks (outcome.kind)
+grep '"kind":"stepError"' .ripplo/debug/<runId>/behavior.jsonl     # infrastructure errors
+grep '"kind":"error"'     .ripplo/debug/<runId>/behavior.jsonl     # page errors
+grep '"kind":"network"'   .ripplo/debug/<runId>/behavior.jsonl     # 4xx/5xx
 ```
 
 Render a frame to PNG and Read it:
@@ -93,7 +94,7 @@ Pick the most upstream failure (given/seed over a test-specific selector), fix +
 
 1. Find the workflow in `.ripplo/workflows/` — identity is the `workflow("<intent>")` string, not the filename.
 2. Use the existing run's output + behavior.jsonl. Re-run only after a fix.
-3. Read the finding, then the failing `assertion` event, then the surrounding `action`/`network`/`error`/`rrweb`.
+3. Read the failing `check` event (and any `stepError`), then the surrounding `action`/`network`/`error`/`rrweb`.
 
 ### Common root causes
 
