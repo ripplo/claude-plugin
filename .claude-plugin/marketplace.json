@@ -2,13 +2,13 @@
   "name": "ripplo",
   "owner": { "name": "Ripplo" },
   "metadata": {
-    "description": "Close the loop on full-stack app delivery. Agents and users define success criteria as deterministic, backend-aware e2e tests; hooks enforce that every user-facing edit is covered; replay UI shows exactly what happened."
+    "description": "Close the loop on full-stack app delivery. Agents and users define success as typed, state-aware user journeys. Hooks enforce coverage, and replay shows exactly what happened."
   },
   "plugins": [
     {
       "name": "ripplo",
       "source": "./",
-      "description": "Close the loop on full-stack app delivery. Agents and users define success criteria as deterministic, backend-aware e2e tests; hooks enforce that every user-facing edit is covered; replay UI shows exactly what happened.",
+      "description": "Close the loop on full-stack app delivery. Agents and users define success as typed, state-aware user journeys. Hooks enforce coverage, and replay shows exactly what happened.",
       "category": "testing",
       "keywords": ["e2e", "testing", "tests", "playwright", "qa"],
       "homepage": "https://ripplo.ai",

@@ -1,238 +1,433 @@
 ---
 name: create
-description: "Create a new Ripplo e2e workflow: model the state it touches as entities, compose its starting givens, write the action/assertion steps, and run it. Use when adding an e2e workflow for a user flow."
+description: "Create a Ripplo end-to-end workflow from the app's typed state schema, starting-state constraints, user actions, and complete declared effects. Use when adding or extending workflow coverage."
 ---
 
-# Create Ripplo Workflow
+# Create a Ripplo workflow
 
-Flow broken? Fix the app, never weaken the workflow. Confirmed app bug? File with `npx ripplo report-bug` (see `/ripplo:run`). New entity/impl/given the workflow needs is in-scope. Backend verification is automatic: declare `Entity.created/updated/deleted` inline; Ripplo checks actual state after each step.
+Fix broken app behavior in the app. Strengthen incomplete workflow declarations in the workflow.
+Read `node_modules/@ripplo/testing/DSL.md` before using an unfamiliar primitive.
+
+A workflow is a durable model of a critical user journey, not a script for one fixture. Its
+`given` must describe the widest set of starting states from which the whole journey is valid.
+Preserve that generality in URLs, locators, inputs, branch conditions, and effects.
 
 ## Prerequisite
 
-App dev server + `npx ripplo daemon`. Check `npx ripplo doctor`; if missing, `/ripplo:start`.
+Run `npx ripplo doctor`. The app dev server and `npx ripplo daemon` must be running.
 
-## The model
+Inspect:
 
-Full primitive catalog at `node_modules/@ripplo/testing/DSL.md` — read for less-common primitives (`select`/`upload`/`check`, singletons, optional/relational, `within`/`where`). Skim `.ripplo/entities/`, `.ripplo/givens.ts`, `.ripplo/workflows/` for project patterns. Three layers:
+- `.ripplo/state.ts` for schema-derived state handles
+- `.ripplo/givens.ts`, when present, and feature givens for starting-state helpers
+- `.ripplo/workflows/` for local authoring patterns
+- The app component, route, mutation, and data model for the journey
 
-- **Entities** (`.ripplo/entities/`) — `entity("name", { fields, identity, source })`. `source`: `"backend"` (default, server engine impl) or `"client"` (browser-only: localStorage/IndexedDB/in-memory, client engine via `mountClientEngine(ripplo, impls, { enabled })`, gated by a build-time flag — Vite `VITE_ENABLE_RIPPLO_TESTING`, Next.js `NEXT_PUBLIC_ENABLE_RIPPLO_TESTING`). Unsure → backend. A field is a seedable state dimension with a value type (`field({ value: v.email() })`); a foreign key is `field({ value: v.id() })` wired to a parent id. Derived (`slug`) and server-defaulted (`createdAt`) values are not fields. `{ optional: true }` = nullable.
-- **Givens** (`.ripplo/givens.ts` + per-feature `givens.ts`) — small pure functions returning one entity handle (or a tight cluster), taking parents as args, wiring foreign keys from their handles. Cross-feature → `.ripplo/givens.ts`; feature-specific → colocated with their workflows. No big shared bundles.
-- **Workflows** (`.ripplo/workflows/`) — `workflow("Intent", () => ({ given, steps }))`. `given` = setup (one array of handles); `steps` = act + assert. One test per `when` branch; no whens → single test "main".
+## State model
 
-A workflow is a **user journey**: one user intent, the real click path from a natural entry point, however many steps/mutations it takes. A different intent is a separate workflow.
-
-Two primitives:
-
-- **`actor`** — who's signed in. `actor.set(handle)` in `given` = start signed in as that principal; as a _step_ = a mid-run switch (signs in, reloads). `actor.anonymous` = signed out. Sign-out is declared: assert `actor.is(actor.anonymous)` on the logout/revoke/deactivate step. `actor.set` is self-verifying.
-- **`exclusive`** — mutually-exclusive UI (tabs, toggle, settings sections). Declare once: `exclusive({ open: visible(a), closed: visible(b) })` (usually `.ripplo/surfaces/`). Asserting one member auto-negates its siblings — skip hand-written `not(visible(...))`.
-
-## Declare up front — or eat a red run
-
-- **A page-changing step asserts the new url:** `url.path.is("/new-path")` on any navigation.
-- **Number inputs are `spinbutton`, not `textbox`:** `<input type="number">` → `spinbutton("Amount")`.
-- **Siblings that appear/disappear together are an `exclusive` group** — declaring them as independent `visible`/`not(visible)` = fact conflict at compile.
-- **Two of the same entity on one page need page-unique locators** — scope inside a named container (`inside(region("Owner"), ...)`) or use a distinguishing accessible name. Same locator, same page, two meanings = compile error.
-- **A display backed by a record you change must declare the change:** `Entity.updated({ id }, { field: newValue })` on the acting step (badge, count, title). Asserting the new text alone leaves the model predicting the old value. No durable record backs it? Wrap in `ephemeral(...)`.
-
-## Procedure
-
-1. **Name the user intent in one sentence** — that is the workflow.
-2. **Walk the click path like a user** from a natural entry point. `goto` a deep URL only when the journey genuinely starts from a link (email invite, shared URL).
-3. **Name the regression each mutation catches.** Trace each end-to-end (component → resolver/route → DB); the entities to assert fall out of the trace.
-4. **Sweep for branches.** Per step: what seeded state changes this outcome (empty vs populated, first vs last, pending, role)? Each answer → a named `when` branch or explicitly ruled out.
-5. **Compose givens — seed only what the path can't reach.** Prefer creating state through the UI. Reuse existing givens; add one only when a piece of state has none. Keep `given` minimal.
-6. **Ensure entities exist** — every seeded/asserted row needs an `entity(...)` + engine impl (TS errors if missing).
-7. **Read real component/route source** for ARIA roles, button text, form fields. **Never fabricate locators.** No accessible name? Add it to the app — don't fall back to `testId()`.
-8. **Write the workflow** (intent string is the identity, not the filename):
-
-   ```ts
-   // imports { actor, arbitrary, branch, button, click, count, fill, goto,
-   //   heading, inside, link, not, role, row, text, textbox, visible, when,
-   //   workflow } from "@ripplo/testing"; entities + `import * as given`
-   export const createAndCompleteTask = workflow("Create a task and mark it done", () => {
-     const me = given.user();
-     const signedIn = actor.set(me);
-     const project = given.project(given.organization());
-     const existing = Task.maybe({
-       title: arbitrary(Task.field.title),
-       status: "open",
-       projectId: project.id,
-     });
-     const title = arbitrary(Task.field.title);
-     return {
-       given: [me, signedIn, project, existing],
-       steps: [
-         goto`/`.expect(visible(link(project.name))),
-         click(link(project.name)).expect(visible(link("Tasks"))),
-         click(link("Tasks")).expect(
-           visible(button("New task")),
-           when(
-             branch("starting from an empty task list")
-               .if(count(Task).is(0))
-               .expect(text(role("main"), "No tasks yet")),
-             branch("starting from a list that already has tasks").expect(
-               visible(row(existing.title)),
-             ),
-           ),
-         ),
-         click(button("New task")).expect(
-           visible(heading("New task")),
-           visible(textbox("Title")),
-           visible(button("Create")),
-         ),
-         fill(textbox("Title"), title),
-         click(button("Create")).expect(
-           not(visible(role("dialog"))),
-           visible(inside(row(title), button("Mark done"))),
-           Task.created({ title, projectId: project.id }),
-         ),
-         click(inside(row(title), button("Mark done"))).expect(
-           text(row(title), "Done"),
-           Task.updated({ title, projectId: project.id }, { status: "done" }),
-         ),
-       ],
-     };
-   });
-   ```
-
-   Shape: entry at `/`, navigation clicked, a `when` where seeded state changes the page, two mutations each carrying UI + backend evidence, the second acting on state the first created. Every clicked element was declared `visible(...)` by an earlier step — compile rejects touching anything no step showed. Each `.expect(...)` declares exhaustively what appeared and (via `not(visible(...))`) what disappeared.
-
-9. **Register it** — add the export to the `workflows` array in `.ripplo/workflows/index.ts`. Subfolder = sidebar group. Unregistered workflows don't exist.
-10. `npx ripplo compile` — fix all errors. Fails on unreachable when branches; writes the lockfile only when sound.
-11. `npx ripplo run <workflow-slug>` runs all its tests; `<workflow-slug>/<test-slug>` runs one branch. On failure, `/ripplo:run`.
-12. `npx ripplo compile` and **stage `.ripplo/ripplo.lock`** alongside the `.ripplo/*.ts` changes.
-
-## Good workflow — cover each mutation in three phases
-
-- **Before:** the given seeds a known value (`arbitrary(...)` or a literal) so an after-assertion can't pass by coincidence.
-- **Action:** the user-facing step.
-- **After:** both **UI evidence** (`visible`/`text`/`value`) and **state evidence** (`Entity.created/updated/deleted`) on the same `.expect(...)`. A toast can lie.
-
-- Assert negatives: `not(visible(role("dialog")))` after a save, errors absent, prior values gone.
-- Every mutation step declares its full UI delta — what appeared and (via `not(visible(...))`) what disappeared (a row leaves a filter, a label swaps, a section unmounts).
-- `text(...)`/`value(...)` assert content not presence — distinguish shown/not-shown with `visible`/`not(visible)`, never text alone.
-- Different actors or flows (admin vs member) are separate workflows.
-
-## Branching with `when`
-
-`when` takes named `branch(...)` builders, each guarded by `.if(condition)` and asserted with `.expect(...)`.
-
-- Every branch named, unique within the workflow. At most one unconditional branch, last.
-- No nested whens ("whens are one level deep") — a second level is its own workflow.
-- Name = the scenario from the user's POV including the driving state. Avoid post-state names ("no projects left") and seed-mechanics names ("first project, onboarding pending"). Must read as a sentence under the workflow name.
-- The compiler solves a seed per branch: picks which `maybe(...)` to seed, pins `arbitrary()` singleton values so the condition holds after declared effects. `maybe()` = a compile-time choice, never random at run time.
-- `.if(...)` gates on modeled state only — entity conditions (`count(Task.where({ status: "open" })).is(0)`, `exists(Run)`), client singletons, URL state. `or(...)`/`and(...)` combine. Transient DOM isn't conditionable — model the cause as a URL param or singleton.
-- "branch X unreachable" = no seed satisfies the condition — fix it or widen the given set with `maybe`.
-- "too many optional entities…" = candidate seeds exceed the 4096 cap — split the workflow or convert `maybe(...)` to `of(...)`.
-
-## Backend assertions
-
-Every mutation step carries an entity assertion; Ripplo compares actual state after each step. Pair every one with the user-visible outcome — never just a closed dialog or a toast.
-
-- `Entity.created({ field: value })` — a row with these fields now exists.
-- `Entity.updated({ id: handle.id }, { field: newValue })` — the keyed row changed. `changed()` = differs without pinning; `increased()`/`decreased()` also assert direction.
-- `Entity.deleted({ id: handle.id })` — the keyed row is gone.
-
-Timing: default `strict` fails fast on a wrong intermediate value; `consistency: "eventual"` (or a `changed()` baseline) tolerates lag.
-
-## Adding an entity
-
-A seeded/asserted row needs a definition (`.ripplo/entities/index.ts`) + an app engine impl (TS flags a missing impl).
+One root Zod schema defines all application state. Its top level contains at most one HTTP source
+and one browser source. Each source returns its whole validated fragment in one read.
 
 ```ts
-export const Task = entity("task", {
-  fields: {
-    title: field({ value: v.word() }),
-    status: field({ value: v.oneOf(["open", "done"]) }),
-    projectId: field({ value: v.id() }), // FK = a plain id field wired at setup
-  },
-  identity: { id: id() },
-  source: "backend",
-}); // add Task to the exported `entities` array
+export const state = defineState(
+  z.object({
+    core: source.http(z.object({
+      organizations: setup.record(
+        z.object({
+          id: setup.generated(z.string()),
+          name: setup.value(z.string()),
+        }),
+      ),
+      projects: setup.record(
+        z.object({
+          id: setup.generated(z.string()),
+          name: setup.value(z.string()),
+          organizationId: setup.value(z.string()),
+        }),
+      ),
+      runs: setup.record(
+        z.object({
+          id: setup.generated(z.string()),
+          status: setup.value(z.enum(["passed", "failed"])),
+          workflowId: setup.value(z.string()),
+        }),
+      ),
+      tasks: setup.record(
+        z.object({
+          id: setup.generated(z.string()),
+          projectId: setup.value(z.string()),
+          status: setup.value(z.enum(["open", "done"])),
+          title: setup.value(z.string()),
+        }),
+      ),
+      workflows: setup.record(
+        z.object({
+          id: setup.generated(z.string()),
+          name: setup.value(z.string()),
+          projectId: setup.value(z.string()),
+        }),
+      ),
+    })),
+    frontend: source.browser(z.object({
+      enabled: setup.value(z.boolean()),
+      note: setup.value(z.string().optional()),
+      selectedTaskId: setup.value(z.string().nullable()),
+    })),
+  }),
+);
+
+export const { organizations, projects, runs, tasks, workflows } = state.core;
 ```
+
+- `setup.value()` means a workflow can supply the value.
+- `setup.generated()` means setup generates and returns the value.
+- `setup.record()` means setup can create rows.
+- Plain Zod fields are observable only.
+- Wrap each source schema with `source.http()` or `source.browser()`.
+- HTTP and browser sources use the same `read`, `setup.fields`, `setup.records`, and `teardown`
+  contract.
+- Implement `source.http()` in the server process and mount its framework adapter.
+- Implement `source.browser()` in the browser bundle and pass its engine to `connect(engine)`
+  before rendering.
+- A read-only source implements only `read`. A setup-capable source also implements `setup` and
+  `teardown`.
+- Attach `createAuthenticationEngine()` directly to an HTTP record handle when a workflow needs to
+  sign in. See `/ripplo:setup` for integration and ordering.
+
+## Workflow shape
+
+One workflow is one user intent along the real click path from a natural entry point. Earlier steps
+create state later steps use. Set up only what the path cannot create.
 
 ```ts
-task: {
-  seed: async ({ fields, runId }) => {
-    const id = testId(runId, "task"); // run-scoped id => parallel isolation
-    await db.task.create({ data: { id, ...fields } });
-    return { id, ...fields }; // just the row — no session
-  },
-  read: async ({ runId }) =>
-    (await db.task.findMany({ where: { projectId: { startsWith: runPrefix(runId) } } }))
-      .map((t) => ({ id: t.id, title: t.title, status: t.status, projectId: t.projectId })),
-},
+const organizationActions = surface(menu("Organization actions"), { overlay: true });
+const deleteOrganizationDialog = surface(dialog("Delete organization"), { overlay: true });
+
+export const deleteOrganization = workflow("Delete an organization", () => {
+  const organization = required(organizations, {});
+  const remainingOrganization = optional(organizations, {});
+  const project = required(projects, { organizationId: organization.id });
+  const projectWorkflow = required(workflows, { projectId: project.id });
+  const projectRun = required(runs, { workflowId: projectWorkflow.id });
+  const organizationProjects = select(projects, {
+    organizationId: organization.id,
+  });
+  const organizationWorkflows = select(workflows, (candidate) =>
+    exists(select(organizationProjects, { id: candidate.projectId })),
+  );
+  const organizationRuns = select(runs, (candidate) =>
+    exists(select(organizationWorkflows, { id: candidate.workflowId })),
+  );
+
+  return {
+    given: [
+      viewport.desktop,
+      organization,
+      remainingOrganization,
+      project,
+      projectWorkflow,
+      projectRun,
+      closed(organizations),
+    ],
+    steps: [
+      goto`/organizations/${organization.id}/overview`.expect(
+        visible(heading(organization.name)),
+        visible(button("Organization actions")),
+      ),
+      click(button("Organization actions")).expect(
+        visible(organizationActions),
+        visible(inside(organizationActions, link("Settings"))),
+      ),
+      click(inside(organizationActions, link("Settings"))).expect(
+        not(visible(organizationActions)),
+        url.path.is`/organizations/${organization.id}/settings`,
+        visible(heading("Organization settings")),
+        visible(button("Show danger zone")),
+      ),
+      click(button("Show danger zone")).expect(visible(button("Delete organization"))),
+      click(button("Delete organization")).expect(
+        visible(deleteOrganizationDialog),
+        visible(inside(deleteOrganizationDialog, textbox("Organization name"))),
+        visible(inside(deleteOrganizationDialog, button("Delete organization"))),
+      ),
+      fill(
+        inside(deleteOrganizationDialog, textbox("Organization name")),
+        organization.name,
+      ).expect(
+        value(inside(deleteOrganizationDialog, textbox("Organization name")), organization.name),
+        enabled(inside(deleteOrganizationDialog, button("Delete organization"))),
+      ),
+      click(inside(deleteOrganizationDialog, button("Delete organization"))).expect(
+        not(visible(deleteOrganizationDialog)),
+        deleted(organizationRuns),
+        deleted(organizationWorkflows),
+        deleted(organizationProjects),
+        deleted(select(organizations, { id: organization.id })),
+        when(
+          branch("deleting the last organization")
+            .if(equals(count(select(organizations, {})), exact(0)))
+            .expect(url.path.is`/organizations/new`, visible(heading("Create an organization"))),
+          branch("deleting one of several organizations").expect(
+            url.path.is`/organizations`,
+            visible(link(remainingOrganization.name)),
+          ),
+        ),
+      ),
+    ],
+  };
+});
 ```
 
-- **`seed`** creates one row from `fields`, returns just that row. Sign-in is separate: mark a principal entity `principal: true` + a `signIn` impl + the global `currentActor(session)` impl (see `/ripplo:setup`, DSL.md).
-- **`read`** returns all this run's rows; scope every query by the run (`runPrefix(runId)`).
-- Entities in `.ripplo/`, impls in the app engine — never `entity(...)` in app code.
-- **Adding an entity obligates every flow that writes it.** Once it has a `read` impl, Ripplo checks its rows after every step — including side-effect rows. Search the app for every mutation writing this table and declare those with `Entity.created(...)`.
+Every clicked element must be declared reachable by an earlier durable `visible()` assertion.
+Every mutation step declares its user-visible result and complete application-state effect.
 
-## Adding a given
+Before authoring, state the journey in plain language:
 
-A small pure function returning one handle (or a tight cluster), taking parents as args, wiring foreign keys:
+- Intent: what the user is trying to accomplish
+- Entry point: where that intent naturally begins
+- Path: the real clicks and inputs, including intermediate mutations
+- Preconditions: only state required for every step to remain valid
+- Outcomes: every UI change and application-state effect, including cascades
+
+If the description is “load this page and click this button,” zoom out until it captures the user’s
+actual goal. If two cases follow the same intent and click path but differ by starting state, keep
+them in one workflow with `when`. If the intent or path differs, use another workflow.
+
+## Starting state
+
+Use the schema handles directly:
 
 ```ts
-export function task(project: ProjectHandle): ReturnType<typeof Task.of> {
-  return Task.of({ projectId: project.id, title: arbitrary(Task.field.title) });
-}
+const task = required(tasks, { projectId: project.id, status: "open" });
+const candidate = optional(tasks, { projectId: project.id, status: "open" });
+const note = optional(state.frontend.note, arbitrary(state.frontend.note));
+
+absent(tasks, { projectId: project.id, status: "archived" });
+absent(state.frontend.note);
+closed(tasks);
+equals(state.frontend.selectedTaskId, task.id);
 ```
 
-- Cross-feature → `.ripplo/givens.ts`; feature-specific → colocated `givens.ts`. Deep graphs seed flat: flatMap each level, wiring every FK from the parent handle.
-- `Entity.of(props)` guaranteed; `Entity.only(props)` exactly one; `Entity.maybe(props)` optional compile-time choice; `Entity.none(where)` asserts absence (returns a handle — include it in `given`).
-- `arbitrary(Entity.field.x)` is the only param source (a fresh draw each call). Wire FKs from a parent handle's id.
-- Every handle a given creates must reach the `given:` array.
+- `required()` guarantees a matching row and returns typed field handles.
+- `optional()` lets the solver choose presence to cover branches.
+- `absent()` forbids a path or matching row.
+- `closed()` says setup created every row in that collection.
+- `equals()` requires a relationship or value at a path.
+- `arbitrary(field)` creates a typed workflow input from the field's Zod domain.
+- Omit record fields when their generated values are not shared. Use the returned record field.
+- Reuse one arbitrary binding across fields only when setup must make their values equal.
+- Interpolate record fields in workflow URLs and element locators. Don't repeat exact setup values
+  in actions or expectations.
+- Build locator numbers from live state with an `s` template. Mark fixed product copy with
+  `exact(...)`.
+- Record references establish setup order. Missing dependencies and cycles are compile errors.
 
-## Parallel safety
+`required`, `optional`, `absent`, and `closed` describe meaningful state shape. Presence alone can
+change what the UI renders, so keep a constraint when the journey depends on that shape even if no
+later state assertion names it.
 
-Isolation lives in the **engine impl**: seed run-scoped ids (`testId(runId, "task")`), scope `read`/cleanup to `runPrefix(runId)`, never touch other runs' rows. Leakage symptoms (unique-constraint errors, 401 mid-test, vanishing rows) are impl bugs.
+Start broad:
 
-## Determinism
+- Omit setup-capable record fields that do not affect the journey. Setup generates them from the
+  schema, and the returned record exposes their values.
+- Use `arbitrary(field)` when a workflow input may be any schema-valid value. Reuse the binding in
+  the browser action and the effect.
+- Use `exact(value)` only when that concrete string or number causes the behavior under test.
+  Enums, booleans, and `null` already have closed domains and stay bare.
+- Use a relationship such as `gt`, `lte`, or `not(equals(...))` when behavior depends on a range or
+  change rather than one literal.
+- Add `closed(record)` only when the journey needs complete collection knowledge, usually for a
+  count or existence branch.
 
-- `role` locators (`button`, `textbox`, `heading`, `link`, `dialog`, `row`, `menuitem`, …); `testId\`...\`` only when no ARIA role exists. Names exact — no matcher/regex.
-- `text(el, x)`/`value(el, x)` assert the whole normalized text exactly. Substring/prefix explicit: `contains(...)`, `startsWith(...)`. Matcher-valued assertions check at their step but don't carry as facts.
-- Numeric copy asserts the formula: `text(pill, s\`Open tasks ${count(Task.where({ status: "open" }))}\`)`.
-- Every locator name is a tagged template: `button\`Edit ${schedule.name}\``.
-- Scope with `inside(scope, target)`: `inside(row(schedule.name), button("Delete"))`, `inside(main(), button("New"))` for duplicate CTAs. Container rows usually need an app `aria-label`.
-- Elements inside an iframe: `inside(frame(el), target)` where `el` locates the iframe element. Legal only as an `inside` scope; frame-scoped elements never share identity with same-named outer-page elements. Cross-origin iframes run and assert fine but don't record for replay.
-- `arbitrary(...)` for seeded values; reference handles directly (`project.id`) — never hardcode ids.
-- The setup/act boundary is `given:` vs `steps:`.
+`exact(...)` is an explicit claim of behavioral significance, not an escape hatch for the compiler.
+Ask: would the journey still be valid with another schema-valid value? If yes, use a generated
+binding or a relation. If no, make the exact value’s role clear in the workflow.
 
-## Facts
+Keep state-derived browser values connected to state:
 
-Every `visible`/`text`/`value` assertion becomes a **fact**: a `when ⇒ consequence` rule where the `when` is the full declared state at that step. Facts fire on a later state only when that whole precondition holds — **there is no generalization**: the model never invents broader rules from your assertions, never claims anything on a state it hasn't been told about, and stays silent where it knows nothing. Declarations are the single source of truth; the explorer's findings are contradictions of them, never guesses.
+```ts
+const nextTitle = arbitrary(tasks.title);
+const selectedTask = select(tasks, { id: task.id });
 
-Because facts carry their full origin state, what matters is declaring **effects where they happen** (see Scoping conventions) — a well-declared step is reusable on every composed path that genuinely reaches the same state.
+fill(textbox("Title"), nextTitle);
+click(button("Save")).expect(
+  text(row(nextTitle), nextTitle),
+  updated(selectedTask, {
+    title: transform(({ after, before }) =>
+      and(equals(after, nextTitle), not(equals(after, before))),
+    ),
+  }),
+);
+```
 
-Debug: a `fact` violation from `npx ripplo compile` prints both contradicting consequences, the state they share, and per producing test what it adds beyond the shared state — the producer adding nothing is missing the pin that distinguishes its state; add that declaration (often a `checked(...)`/`not(visible(...))` the step under-declared) or split with a when branch.
+Fixed application copy such as `button("Save")` is fine. A record name, count, amount, slug, URL
+segment, or other value rendered from state must come from its handle or expression. For example,
+use `button(s\`Scope ${count(scopedWorkflows)}\`)`, not `button(exact("Scope 2"))`.
 
-### Declared facts
+## Branch sweep
 
-Author a rule directly, always enforced without any workflow; a more specific fact overrides a broad `learned` one. For app-wide rules or permission boundaries. Write in `.ripplo/facts.ts`, wire into `createRipplo({ ..., facts })`:
+At each step ask which starting state can change the result while preserving the same user intent
+and click path. Model that state with `optional()` or another broad constraint, then cover each
+reachable outcome with a named branch.
+
+```ts
+const maybeOpenTask = optional(tasks, {
+  projectId: project.id,
+  status: "open",
+});
+const openTasks = select(tasks, { projectId: project.id, status: "open" });
+
+when(
+  branch("opening a project with tasks")
+    .if(gt(count(openTasks), exact(0)))
+    .expect(visible(list("Tasks"))),
+  branch("opening an empty project").expect(text(main(), "No open tasks")),
+);
+```
+
+A selection used by a branch condition requires `closed()` for every queried collection. Otherwise
+unknown rows could change the answer. Branches are ordered. One unconditional fallback may appear
+last. Nested `when()` calls are invalid. Branch conditions constrain synthesis directly. Do not
+duplicate them as fixed starting-state values.
+
+Include `maybeOpenTask` and `closed(tasks)` in `given`. The optional record gives synthesis a
+presence choice, while `closed(tasks)` makes the count complete.
+
+## State effects
+
+`select()` is the only record filter:
+
+```ts
+const projectTasks = select(tasks, { projectId: project.id });
+const openProjectTasks = select(projectTasks, { status: "open" });
+
+updated(openProjectTasks, { status: "done" });
+deleted(projectTasks);
+```
+
+Use `choose(locator, value)` to select an option in a browser control.
+
+Selection membership is frozen before the action. Every selected row receives the effect. A
+selection used by `updated()` or `deleted()` must be provably nonempty at that step. Select through
+required or previously created records when one row must change. Use nested selection callbacks for
+relational cascades.
+
+Creation is exhaustive:
+
+```ts
+const newTitle = arbitrary(tasks.title);
+const task = created(tasks, {
+  projectId: project.id,
+  status: "open",
+  title: newTitle,
+});
+```
+
+Supply every setup-capable field. Schema-generated fields are implicit. Use `generated()` when this
+action generates a field that the schema otherwise marks `setup.value()`. Use the zero-argument
+`absent()` value for an optional creation field that must be missing. The result exposes the
+complete observed row.
+
+Scalar and record field transforms are relational:
+
+```ts
+transform(state.frontend.enabled, ({ after, before }) => equals(after, invert(before)));
+
+updated(selectedTask, {
+  title: transform(({ after, before }) => not(equals(after, before))),
+});
+```
+
+Use exact relations when the next value is known. Use broader relations only when the app chooses
+the value. Every effect must be provably changing from the state known at that step. Compilation
+rejects a possible no-op. Fix the model from the behavior:
+
+- If the action chooses a new value, use a transform that excludes equality.
+- If an earlier state decides whether the action changes anything, cover those cases with `when`.
+- If the action is valid only under a real precondition, add the least-specific constraint that
+  proves it and preserve excluded behavior in another branch or journey.
+- Do not hardcode a convenient previous value merely to make the proof pass.
+
+Every observed change outside declared effects is a frame failure.
+
+For a cascade, declare every affected collection:
+
+```ts
+const projectWorkflows = select(workflows, { projectId: project.id });
+const workflowRuns = select(runs, (run) =>
+  exists(select(projectWorkflows, { id: run.workflowId })),
+);
+
+deleted(workflowRuns);
+deleted(projectWorkflows);
+deleted(select(projects, { id: project.id }));
+```
+
+## Browser declarations
+
+- Assert the new URL after navigation.
+- Use accessible roles and app-owned names from source.
+- Scope duplicate names with `inside()`.
+- Model modal, drawer, menu, tab, and accordion containers with `surface()`.
+- Use `exclusive()` for mutually exclusive UI.
+- Declare both directions of stateful UI, such as Save appearing on edit and disappearing on save.
+- Before `fill`, `choose`, `clear`, `check`, or `uncheck` claims another outcome, declare whether
+  the action changes the control. Use `value(...)` or `not(value(...))` for value actions and
+  `checked(...)` or `not(checked(...))` for check actions. Add branches when the outcomes differ.
+- Use `ephemeral()` only for step-local evidence such as a toast.
+- Pair every application-state effect with user-visible evidence.
+- Reuse state handles and expressions for state-rendered names, values, counts, and URL parts.
+
+## Authentication
+
+`actor.set(requiredActor)` signs in at start or switches actors as a step. `actor.anonymous` starts
+signed out. The required record itself is actor identity. `actor.is(requiredActor)` and
+`actor.is(actor.anonymous)` declare explicit actor changes. Sign-in actions are self-verifying. An
+actor must come from an HTTP record collection with a matching authentication engine. Browser
+records cannot act as signed-in actors.
+
+## App-wide facts
+
+Use `fact()` only for a true invariant or permission boundary that no single journey owns:
 
 ```ts
 export const noCrashScreen = fact("the app never shows the crash screen").expect(
   not(visible(heading("Something went wrong"))),
 );
-
-export const membersCannotManageWebhookSecret = fact("members cannot manage the webhook secret")
-  .if(exists(Member.where({ role: "member", userId: actor.id })))
-  .expect(not(visible(button("Rotate secret"))));
 ```
 
-`fact(name).expect(...)` holds everywhere; `.if(...conditions).expect(...)` only where conditions match. An `.if()` referencing `actor.id` needs exactly one `principal: true` entity. Declared facts are for genuine app-wide laws — don't reach for one to patch a finding a workflow declaration can fix locally.
+Workflow assertions already carry as facts under the full state declared at their step. Ripplo does
+not generalize them beyond those conditions. Do not replace a journey, branch, or missing effect
+with a broad `fact()`.
 
-### Scoping conventions
+## Procedure
 
-- **Groupings that open/close (modal, drawer, menu, tab, accordion)** — model as a **surface**, never hand-list the hidden background (hiding 2+ elements at once is a `surface` compile error). `const editRepo = surface(dialog("Edit repository"), { overlay: true })`; open with `visible(editRepo)`, scope contents with `inside(editRepo, ...)`, close with `not(visible(editRepo))`. Contents are forgotten on close — re-assert `visible(inside(surface, ...))` after reopening anything a later step touches. `{ overlay: true }` = covers the page (modal, backdropped drawer, occluding menu — includes dropdowns like a user menu; this also stops the explorer from re-clicking the opener behind the open overlay); `{ overlay: false }` = a coexisting panel (tab, accordion) that always needs `inside(...)`. Same container can't be both. Opening an overlay also drops model knowledge of the page behind it — after closing it, re-assert outside elements later steps touch. Full ref: DSL.md.
-- **Effects declared where they happen** — an element that appears/enables because of an action gets declared on that action's step, both directions. Dirty-form Save: `fill(...).expect(visible(button("Save")))`, the save/discard click expects `not(visible(button("Save")))`, and the clean initial state declares `not(visible(button("Save")))` at the goto. A leave-prompt conditional then falls out of the guards for free — no special machinery. Bare clicks with invisible side effects (selecting an item that enables a confirm button) declare them too: `checked(...)` on the item, `disabled(...)`→`enabled(...)` on the button; if the app exposes no aria state, add it to the app.
-- **Toggle buttons (same button opens and closes)** — pin the backing singleton in the given (`devPanel.of("closed")`) so the opening transition is guarded, and cover open/switch/close in one dedicated toggle workflow so composed paths predict the close.
-- **Transient toast/spinner** — `ephemeral(...)`: `ephemeral(text(testId("toast-success"), "Saved"))`. Checked at that step, never promoted to a fact. Still carry the durable proof as `Entity.updated`. Also fits step-local exact-value evidence that shouldn't carry (a mid-edit validation alert, a `value(...)` the flow changes next step). Wraps UI predicates only, grants no reachability — to click, assert a normal `visible(...)`.
-- **Post-delete absence** — assert `not(visible(...))` on the delete step itself.
-- **Generic shared name** — a `button("Save")` on many pages is global; scope inside `main(...)` or a region.
-- **Duplicate accessible name on one page** — disambiguate with `inside(region(...), ...)` or a more specific role, never a bare name matching both.
+1. Name one user intent.
+2. Trace the real click path and every mutation in app source.
+3. Write the widest starting-state constraints consistent with the entire path.
+4. Sweep state-dependent outcomes into named branches.
+5. Add missing state schema fields and source implementations.
+6. Write the workflow with exhaustive UI and state effects.
+7. Audit every string and number for unnecessary specificity.
+8. Verify every effect is complete and provably changing.
+9. Register it in `.ripplo/workflows/index.ts`.
+10. Run `npx ripplo compile` and fix every authoring diagnostic.
+11. Run `npx ripplo run <workflow-slug>/<test-slug>` until green.
+12. Run bare `npx ripplo run` once for cross-workflow regressions.
+13. Stage `.ripplo/ripplo.lock` with the workflow changes.
 
-## Parallelizing multi-workflow sessions
+Do not hand-edit the lockfile. Do not weaken a declaration to silence an app bug.
 
-More than ~3 workflows: fan out subagents (~5/batch, one per workflow or per 2–3 sharing givens). **Every Agent prompt must instruct the subagent to first invoke the Skill tool with `ripplo:create`** — subagents don't inherit skill context. Keep compile/run/debug + entity/impl wiring on the main agent.
+## Final generality audit
+
+Before calling the workflow complete:
+
+- Does `given` contain only preconditions needed by the full journey?
+- Could any exact string or number become an arbitrary binding or a wider relation?
+- Does every state-rendered locator, input, URL, and expected value derive from state?
+- Do optional presence and collection cardinality cases have named branches where they alter the
+  same journey?
+- Does each action build on state created or established by earlier steps?
+- Is every application-state change declared, including cascades?
+- Is every effect guaranteed to change the known state?
+- Would a schema-valid value outside today’s fixtures still make the workflow meaningful?

@@ -1,89 +1,81 @@
-<div align="center">
+# Ripplo — Claude Code Plugin
 
-<img src="assets/logo.svg" width="88" alt="Ripplo" />
-
-# Ripplo for Claude Code
-
-**Make your coding agent prove its work.**
-
-End-to-end validation for agent-built apps, enforced inside the agent loop.
-
-[![Version](https://img.shields.io/badge/version-0.10.0-green.svg)](.claude-plugin/plugin.json)
-[![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code/plugins)
-
-[**Website**](https://ripplo.ai) · [**Docs**](https://ripplo.ai/docs)
-
-<a href="https://www.youtube.com/watch?v=hrjQg55Bc5w"><img src="https://img.youtube.com/vi/hrjQg55Bc5w/maxresdefault.jpg" width="720" alt="Watch the Ripplo demo" /></a>
-
-*▶ Watch the demo*
-
-</div>
-
----
-
-Ripplo discovers the critical end-to-end **workflows** in your application and handles QA for you, so you don't need to write tests or manually click through the entire UI before every release. Our guiding principles:
-
-**Ripplo is strict.** It enforces a programmatic quality and correctness bar on the workflows themselves at compilation time. Best practices around testing, linting, and hooks are built in, so you don't end up testing your AI slop with more AI slop.
-
-**Ripplo is legible.** Developers can scrub through the frontend interactions, backend state, and validations for each workflow, all updating in real time using interactive replays.
-
-Ripplo workflows form a feedback loop that pushes your AI to build better software in the first place — fewer bugs reach users, and developers can prove and understand each new feature in the context of the larger user journey.
-
-## This plugin
-
-This repository contains the Claude Code plugin that guides the agent to automatically generate and maintain workflows as you develop. It lets the agent author and run workflows, and wires in hooks so validation is mechanical: the agent can't call work done until every workflow in scope passes.
+Validation-loop hooks that keep your agent's tests in step with the code it ships. Part of
+[Ripplo](https://ripplo.ai) — typed end-to-end tests over the application’s observable state.
 
 ## Install
 
-One command — Ripplo creates your initial workflows for you:
+One command installs the plugin and opens a guided setup session in Claude Code:
 
 ```sh
 npx ripplo setup
 ```
 
-The session signs you in, creates your project, runs `ripplo init` (scaffolds `.ripplo/`, writes `RIPPLO_*` env vars, installs `@ripplo/testing`), starts `ripplo daemon` in the background, and mounts the engine adapter into your app server.
+The session signs you in, creates your project, runs `npx ripplo init` (scaffolds `.ripplo/`, writes
+`RIPPLO_*` env vars, and installs the version-matched Ripplo packages plus Zod), starts
+`npx ripplo daemon` as a background process, and connects the state sources your app uses.
 
-By hand instead:
+Installing by hand instead: `/plugin marketplace add ripplo/claude-plugin`, `/plugin install ripplo`, then `/ripplo:setup`.
 
-```
-/plugin marketplace add ripplo/claude-plugin
-/plugin install ripplo
-/ripplo:setup
-```
+## What the hooks do
 
-**Requirements** — Claude Code, Node 20+, and a Node backend you can mount the engine adapter into (Express, Fastify, Next.js).
+Four hooks wire into the agent's workflow so tests are load-bearing, not advisory.
+
+- **UserPromptSubmit** nudges when user-facing code has drifted from `.ripplo/workflows` and surfaces the flows in scope during plan mode.
+- **PreToolUse / ExitPlanMode** blocks plan exit if the plan touches user-facing code but no matching `.ripplo/workflows` flow is planned.
+- **PostToolUse (Edit/Write)** lints the DSL on `.ripplo/**` edits and flags user-facing edits with no matching workflow.
+- **Stop** lints, runs scoped and changed tests, and blocks on drift — user-facing changes without a matching `.ripplo/workflows` update.
+
+The plugin treats `src/**`, `app/**`, `apps/**`, `pages/**`, `routes/**`, and `components/**` as user-facing, and ignores generated and vendor output.
+
+## What the agent authors
+
+Ripplo workflows are models of critical user journeys, not scripts for fixed fixtures.
+
+- One root Zod schema defines observable application state.
+- Each workflow starts from the widest state constraints compatible with its full user journey.
+- The solver synthesizes concrete starting state for each reachable named branch.
+- Generated values flow through state handles into URLs, locators, inputs, and effects.
+- Exact strings and numbers are reserved for values that genuinely drive behavior.
+- Every application-state change is declared. Changes outside those effects are frame violations.
+- Every declared effect must be provably changing from the state known at that step.
+
+`/ripplo:discover` identifies journeys and their broad state space. `/ripplo:create` enforces the
+authoring model and ends with a generality audit.
+
+## Application integration
+
+The root state schema may contain one HTTP source, one browser source, or both.
+
+- HTTP state uses a server-side source engine mounted through the app framework adapter.
+- Signed-in journeys use a separate authentication engine attached to an HTTP record collection.
+- Browser state uses the same source-engine contract and is passed to `connect(engine)` before the
+  app renders.
+- Apps without modeled browser state still call `connect()` before render.
+- The returned connection's `ready()` method is called only after the current page is interactive.
+  It reports readiness and does not set up state.
+
+Ripplo sets up HTTP state, signs in, and then sets up browser state. Browser setup may depend on
+server-created records. The reverse dependency fails compilation. `/ripplo:setup` contains the
+framework-specific wiring and lifecycle details.
 
 ## Skills
 
-Six slash commands, each owning one job. Your agent loads the right one by trigger — or invoke any of them directly.
-
-| Skill              | What it does                                                        |
-| ------------------ | ------------------------------------------------------------------- |
-| `/ripplo:setup`    | One-time onboarding: auth, scaffold, engine adapter, first run      |
-| `/ripplo:start`    | Bring up the daemon for the dev session                             |
-| `/ripplo:discover` | Crawl the codebase to map click paths and plan coverage             |
-| `/ripplo:create`   | Model the state a workflow touches, write the steps, run it         |
-| `/ripplo:run`      | Run workflows, diagnose failures, manage Testing Scope, file bugs   |
-| `/ripplo:tasks`    | Pick up tasks and explorer findings, prove the fix with a run       |
+| Skill              | Description                                                    |
+| ------------------ | -------------------------------------------------------------- |
+| `/ripplo:setup`    | One-time onboarding: sign in, scaffold, connect sources, first run |
+| `/ripplo:start`    | Bring up the dev server + daemon for the dev session           |
+| `/ripplo:discover` | Map critical journeys and the state each journey depends on     |
+| `/ripplo:create`   | Author a wide, complete model of one critical user journey      |
+| `/ripplo:run`      | Run tests, diagnose failures, manage Testing Scope, file bugs  |
+| `/ripplo:tasks`    | Pick up tasks and explorer findings, prove the fix with a run  |
 
 ## Testing Scope
 
-Scope is the agent's working memory for which workflows this session is on the hook for. It lives in the dev-session DB — no local file — and changes only through `npx ripplo scope add|link|remove`.
-
-Agent scope items must reference an existing workflow, stub or implemented. Free-text intents come from you via the dashboard; the agent's job is to stub a matching workflow and `scope link` it. You see live scope in Developer Mode → Testing Scope, and can pause the hooks entirely from there.
+Scope is the agent's working memory for what user flows the current session is on the hook for. It lives in the dev-session DB (no local file) and is mutated only via `npx ripplo scope add|link|remove`. Agent scope items must reference an existing workflow (stub or implemented); free-text intents come from the user via the dashboard, and the agent's job is to stub a matching workflow and `scope link` it. The user sees live scope in Developer Mode → Testing Scope and can pause hooks entirely from there.
 
 ## Lockfile
 
-`ripplo init` writes the initial `.ripplo/ripplo.lock`. Commit it — the Ripplo server reads it verbatim on every push webhook, and never executes your DSL. Keep it fresh with `npx ripplo compile`, or rely on the pre-commit hook `/ripplo:setup` installs.
-
-## Docs
-
-[**ripplo.ai/docs**](https://ripplo.ai/docs) covers setup (by hand or one command), day-to-day use, and the agentic reviewers.
-
-## Support
-
-Bugs and feature requests: [open an issue](https://github.com/ripplo/claude-plugin/issues). For anything else, [reach the team](https://ripplo.ai).
-
-<div align="center">
-<sub>Built by <a href="https://ripplo.ai">Ripplo</a>.</sub>
-</div>
+`npx ripplo init` writes the initial `.ripplo/ripplo.lock`. Commit it. The Ripplo server reads it on
+every push webhook. Keep it fresh with `npx ripplo compile`, or rely on the pre-commit hook
+`/ripplo:setup` installs.

@@ -20,16 +20,30 @@ App dev server + `npx ripplo daemon` (run refuses otherwise). `npx ripplo doctor
 
 ## Background explorer — the third gate
 
-It walks composed paths no author wrote, catches combine-only bugs. Leave it on. Findings arrive as `finding` tasks → `/ripplo:tasks`.
+It symbolically plans valid composed journeys no author wrote, then runs the most meaningfully
+different plans first. The planner proves the whole trail against workflow declarations before it
+opens a browser. Local and cloud workers use the same planner. Leave it on.
+
+Application crashes and confirmed declaration contradictions arrive as finding tasks. A confirmed
+explicit carried visibility contradiction arrives as a separate workflow coverage gap. Both route
+through `/ripplo:tasks`.
 
 ```sh
 npx ripplo explore                     # show state
-npx ripplo explore on | off            # toggle (needs a live daemon session)
-npx ripplo explore --trail <n>         # path depth (default 12)
-npx ripplo explore --workers <n>       # concurrency (default 2)
+npx ripplo explore on                  # enable (needs a live daemon session)
+npx ripplo explore off                 # disable
+npx ripplo explore on --trail <n>      # enable and set path depth (default 12)
+npx ripplo explore on --workers <n>    # enable and set concurrency (default 2)
+npx ripplo explore analyze             # show how useful the current model is for exploration
+npx ripplo explore analyze --json      # machine-readable analysis
 ```
 
-`explore off` is momentary — the next green run re-enables it. Durable off = `npx ripplo hooks pause` (silences all Ripplo gates).
+Exploration stays in the selected state until another explicit toggle. `npx ripplo hooks pause`
+silences all Ripplo gates.
+
+`analyze` uses the exact production planner without running the app. Use it when exploration is
+waiting for workflow coverage or keeps finding few useful plans. Fix the highest-impact missing
+declarations and shallow journeys it reports.
 
 ## On failure — read artifacts first, re-run last
 
@@ -37,11 +51,18 @@ Re-running tells you nothing unless you changed something. Don't pipe `npx rippl
 
 ### Start with explain
 
-`npx ripplo explain <runId>` — first move on any failed run. Per failing check, grouped by step: the failed check, expected vs actual for a backend mismatch, where a fact was declared, the surrounding network/console/span events, and the exact `snapshot --at` frame. The runId is in the run output. Auto-pulls the stream on demand (local and cloud alike). Drop to the raw stream only for detail `explain` didn't surface.
+`npx ripplo explain <runId>` — first move on any failed run. Per failing check, grouped by step: the
+failed check, expected vs actual for a state-source mismatch, where a fact was declared, the
+surrounding network/console/span events, and the exact `snapshot --at` frame. The runId is in the
+run output. Auto-pulls the stream on demand (local and cloud alike). Drop to the raw stream only for
+detail `explain` didn't surface.
 
 ### The behavior stream
 
-`.ripplo/debug/<runId>/behavior.jsonl` — one causal event per line, discriminated by `kind`. `explain`/`snapshot`/`tasks show` auto-pull it when missing; fetch alone with `npx ripplo pull <runId>`. Kinds: `action`, `check` (one per step check — `family` element/content/scalar/state/frame/action/dataRule, `outcome.kind` passed/failed with a typed `reason`), `stepError` (browser/engine infrastructure error), `finding` (model findings only: unrunnable/impossibleAction/liftVisibility), `step`, `rrweb`, `network`, `console`/`error`, `span`, `meta`.
+`.ripplo/debug/<runId>/behavior.jsonl` starts with a format header, then contains one causal event
+per line. `explain`, `snapshot`, and `tasks show` pull it when missing. Check events carry typed
+outcomes for browser assertions, declared state effects, and frame violations. Step errors preserve
+structured engine diagnostics.
 
 Slice it, don't dump it:
 
@@ -63,7 +84,7 @@ Grep the failing event's `"timestamp"`, snapshot at it. `snapshot` also writes `
 
 ### Teleport into a live app
 
-When a static PNG isn't enough, hand the user a live browser seeded through step `n`:
+When a static PNG isn't enough, hand the user a live browser set up and replayed through step `n`:
 
 ```sh
 npx ripplo teleport <workflow-slug>/<test-slug> --step <n>
@@ -81,14 +102,22 @@ The run output's `decide:` line names the likely branch — confirm against beha
 
 1. **App bug** — the app broke promised behavior. Fix the app, never weaken the workflow. File it (below).
 2. **Strengthen the assertion** — app right, workflow under-specified. Common gaps: a mutation with no `created/updated/deleted`; an undeclared UI delta (a row leaves a filter, a label swaps, a section unmounts). Declare what appeared/disappeared on the mutation step.
-3. **Restrict the `given`** — the behavior only holds from a narrower state. Tighten givens. If it diverges by state rather than disappearing, add a `when` branch.
-4. **Split into a new workflow** — the excluded case is real behavior. Stub a new workflow with its own givens, put it in scope.
+3. **Model the real precondition** — the action only has the declared result from a behaviorally
+   meaningful subset of state. Add the least-specific relation, presence, absence, or permission
+   constraint that proves it. If the same intent and click path diverge by state, use `optional()`
+   plus named `when` branches.
+4. **Split a different journey** — the excluded case has a different user intent or click path.
+   Give it its own workflow and put it in scope.
 
-Moves 3 and 4 pair: every `given` you tighten implies a state you stopped covering — ask "what flow owns that state?"
+Do not hardcode a convenient starting value to turn a failure green. Every added constraint excludes
+state. Name the behavior that requires it, then make sure a branch or another journey owns the
+excluded behavior.
 
 ### One failing test at a time
 
-Pick the most upstream failure (given/seed over a test-specific selector), fix + verify, move on. Verify with `npx ripplo run <workflow-slug>/<test-slug>` until green, then bare `npx ripplo run` once so cross-test breakage surfaces. Don't batch edits across workflows.
+Pick the most upstream failure (starting-state setup before a test-specific selector), fix and
+verify, then move on. Verify with `npx ripplo run <workflow-slug>/<test-slug>` until green, then bare
+`npx ripplo run` once so cross-test breakage surfaces. Don't batch edits across workflows.
 
 ### Procedure
 
@@ -100,19 +129,28 @@ Pick the most upstream failure (given/seed over a test-specific selector), fix +
 
 - **Wrong locator** — element not found. Snapshot the frame, grep `snapshot-<ms>ms.html` for the real ARIA role/name, re-read the component.
 - **Race** — the action ran before the page was ready. Add a `visible(...)` to the prior step's `.expect(...)`.
-- **Backend mismatch** — an `Entity.created/updated/deleted` didn't match; the finding names entity/field + expected-vs-actual:
+- **Application-state mismatch** — a typed state effect did not match. The failure names the source,
+  path or collection, expected value, and observed value:
   - **wrong-value / missing-row / unexpected-row** → app dropped/mis-wrote the value (check `network`/`span`) or the assertion is wrong.
-  - **"never changed within the Ns wait window"** → slow write, not wrong. Declare `wait: "slow"` (or `"async"`); don't switch to `consistency: "eventual"`.
-  - `strict` = must match immediately; `eventual` = may lag, Ripplo waits. A wrong intermediate value under `strict` = app bug.
-  - Server-chosen value → `changed()`, or `increased()`/`decreased()` when the direction matters.
-  - Genuine flicker through wrong values (rare) → `consistency: "eventual"`.
-- **Fact violation** — a declaration from another workflow contradicted here. If your workflow legitimately reaches that state with a different outcome, the originating step is under-declared (missing a `checked`/`not(visible(...))`/state pin that distinguishes the two states) or needs a `when` branch — harden the declaration, never weaken it.
+  - **"never changed within the Ns wait window"** → first determine whether the source is
+    legitimately eventually consistent. If it is, annotate that schema path with
+    `consistency.eventual(...)`. If the UI alone is slow, use `.wait("slow")` on the UI predicate.
+    Do not hide a wrong value behind a longer wait.
+  - App-chosen value → `transform(({ before, after }) => not(equals(after, before)))`.
+  - Known direction or formula → an ordered or exact `transform()` relation.
+- **Fact violation** — a declaration from another workflow contradicted here. If your workflow legitimately reaches that state with a different outcome, the originating step is under-declared (missing a `checked`, `not(visible(...))`, or typed state relation that distinguishes the two states) or needs a `when` branch. Harden the declaration, never weaken it.
 - **Duplicate locator (strict mode)** — `resolved to 2 elements`. Scope: `inside(main(), button("New"))`, `inside(row(schedule.name), button("Delete"))`. Add an app `aria-label`; don't fall back to `testId`.
-- **Given / seed wrong** — check the engine impl's `seed`/`read`, not the workflow.
-- **Seed exists but action does nothing** — the click runs, no mutation lands, no network request; the button is dead because the app needs more state (a cancellable booking, a confirmed status, an unlocking toggle). Snapshot the frame, add the missing state to the seed impl.
-- **Parallel collision** — unique-constraint, 401 mid-run, vanishing rows. The impl isn't isolating per-run (run-scoped ids in `seed`, `runPrefix(runId)` in `read`/cleanup). See `/ripplo:create` → "Parallel safety".
+- **Starting state wrong** — inspect the synthesized input, source setup implementation, and full
+  source read.
+- **Setup succeeds but the action does nothing** — the click runs, no mutation lands, and no network request fires. Inspect the app source for the real precondition, then model that precondition without fixing unrelated values. Cover state-dependent outcomes with `when`.
+- **Parallel collision** — unique-constraint, 401 mid-run, vanishing rows. A source setup, read, or teardown implementation is not isolated by `runId`. Scope every source operation to the current run.
 - **App bug** — file it (below), report to the user with evidence. Don't work around.
-- **App never signaled ready** (`appNotReady`) — the app didn't call `ready()` from `@ripplo/testing` after loading. Wire it at the genuine interactive point behind the build-time testing flag (see `/ripplo:setup` step 5). Not a test bug.
+- **App never signaled ready** (`appNotReady`) — the app did not call the connection's `ready()`
+  after loading. Wire `connect(browserEngine)` from `@ripplo/testing/browser` before render when
+  the schema has browser state, or `connect()` when it does not. Then call `connection.ready()` at
+  the genuine interactive point behind the build-time browser flag. `connect` mounts and gates
+  browser state setup. `ready()` only marks the page interactive. See `/ripplo:setup` step 5. Not a
+  test bug.
 - **Stale lockfile** (422 / "unsupported lockfile version") — `npx ripplo compile` and commit. Never hand-edit.
 - **Server out of sync** — `npx ripplo sync`.
 
@@ -131,7 +169,7 @@ npx ripplo report-bug \
 
 `--run` is required — the catching run, links the bug to its replay. For an exploration finding, pass its repro `explore-…` run id.
 
-**The bar:** only functionality bugs in the app under test — behavior a user would call broken. Do not file: test gaps / wrong locators / races / under-specified assertions / given-seed problems (model fixes); flaky infra / daemon / sync / stale lockfiles; style / copy / cosmetic; anything unconfirmed against evidence.
+**The bar:** only functionality bugs in the app under test — behavior a user would call broken. Do not file: test gaps / wrong locators / races / under-specified assertions / starting-state model problems; flaky infra / daemon / sync / stale lockfiles; style / copy / cosmetic; anything unconfirmed against evidence.
 
 **Kind:** built this session → `new_feature_bug`; worked before a recent change → `regression`; already broken, new coverage exposed it → `latent_bug`.
 

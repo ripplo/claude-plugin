@@ -7,7 +7,14 @@ description: "Pick up Ripplo tasks — open-ended requests anchored to a replay 
 
 A task is an open-ended request anchored to a moment in a run (a run, a frame, usually an element). The comment thread is the ask.
 
-The **background explorer** files tasks too: local and cloud workers walk guided random paths over enabled actions no workflow author wrote. Every failed check becomes a **finding** — deduped by signature, opened as a task of kind `finding` anchored to its `explore-…` repro run. Findings don't wake you but block session end until triaged.
+The **background explorer** files tasks too. Local and cloud workers use the same deterministic
+symbolic planner to prove composed journeys before execution and prioritize meaningfully different
+user-facing behavior.
+
+An application crash, declared-behavior contradiction, or frame violation becomes a **finding**.
+A confirmed explicit visibility contradiction in the carried workflow model becomes a separate
+**workflow coverage gap**. Both are deduped by signature and anchored to an `explore-…` run.
+Explorer tasks don't wake you but block session end until triaged.
 
 Explorer toggles with `npx ripplo explore on|off` — never auto-enabled. `npx ripplo hooks pause` also silences the other gates.
 
@@ -29,24 +36,53 @@ Clear every open task exactly one way: **resolve** with proof, **clarify**, or *
    - **App change** (bug, behavior, layout, copy) → change it, then **prove with exact run + frame + element** (below).
    - **Test coverage** ("cover this flow", "add a test") → load `/ripplo:create`; deliverable is the workflow running green.
    - **Question / ambiguous** → answer in a `comment` anchored to the frame, or `clarify`.
-   - **Explorer finding** (kind `finding`) → triage loop below.
+   - **Explorer finding or workflow coverage gap** → triage loop below.
 
-## Explorer findings
+## Explorer findings and workflow coverage gaps
 
-Category names what broke: **crash** (app threw), **data rule** (cross-entity reference stopped holding), **fact** (a declared expectation contradicted), **frame** (an unexpected change — something changed that no step declared). Every finding is a contradiction of something a workflow declared — the explorer never files findings from ignorance (unknown state is silent) and never guesses. Triage one at a time:
+Category names the verifier layer: **crash** (app threw), **fact** (a declared expectation
+contradicted), or **frame** (state changed outside the declared effects). A finding confirms the
+contradiction. Triage still decides whether the app, workflow declaration, or Ripplo planner is
+wrong.
 
-1. **Explain.** `npx ripplo explain <runId>` reads the repro run back (auto-pulls `behavior.jsonl` from the server). Groups failing checks by step, gives expected vs actual, prints the exact `snapshot --at`. Add `--full` for the whole picture in one place: the world the model set up (seeded entities with their pinned values, absences, singletons, actor) plus a step-by-step timeline of what happened (each step's action, source workflow, page url, state changes, and which checks held or broke). Reach for `--full` when a finding depends on starting state or a composed path, instead of reconstructing it from raw `behavior.jsonl` and the database.
+A **workflow coverage gap** is not an application failure. The carried model explicitly said an
+element was hidden, but the settled page exposed it before the declaration that would make the next
+action sound. Harmless unknown state stays silent.
+
+1. **Explain.** `npx ripplo explain <runId>` reads the repro run back and groups failing checks by
+   step. Add `--full` for the synthesized starting-state blob, actor, parameters, action timeline,
+   state effects, and raw structured engine diagnostics.
 2. **Classify** (four-move tree in `/ripplo:run`):
    - **App bug** — fix the app, file with `npx ripplo report-bug --run <explore-runId>` to link the bug to the finding. (Duplicate/stacked UI like doubled toasts is usually this — e.g. a toast without a stable id.)
-   - **Model gap** — a missing/wrong declaration. **Hardening the workflow declarations is always the remedy** — the model is sound and expressive enough; never conclude a finding "needs new machinery" or is "inexpressible". Match the shape:
-     - Outcome depends on seeded state the given never covers → enrich `given` with `Entity.maybe(...)`/a singleton + `when(branch...)` per outcome. The branch condition must mirror the app's actual rule — read the app source.
-     - Element appears/enables as an effect of an action (dirty-form Save, leave-prompt, reveal) → declare it on the acting step: the fill that reveals expects `visible(...)`, the save/discard that clears expects `not(visible(...))`, the initial clean state declares `not(visible(...))`. Dirtiness is an effect, not a state law.
+   - **Workflow declaration gap** — app source proves behavior is intended, but the workflow
+     omitted the starting-state branch, precondition, or effect. Add or harden the declaration.
+     Never weaken a true declaration to make the finding disappear.
+   - **Workflow coverage gap** — move or add the explicit visibility declaration identified by the
+     gap. Match the shape:
+     - Outcome depends on starting state the workflow does not cover → model the widest meaningful
+       state with `optional()` plus `when(branch...)` per outcome. Use `closed()` for queried
+       collections.
+     - Element appears/enables as an effect of an action (dirty-form Save, leave-prompt, reveal) → declare it on the acting step: the fill that reveals expects `visible(...)`, the save/discard that clears expects `not(visible(...))`, the initial clean state declares `not(visible(...))`. Before `fill`, `choose`, `clear`, `check`, or `uncheck` claims another outcome, declare whether it changes the control with `value(...)`/`not(value(...))` or `checked(...)`/`not(checked(...))`. Branch when outcomes differ. Dirtiness is an effect, not a state law.
      - A bare click with an invisible side effect (selection, toggle) lets the explorer skip it → declare the effect (`checked(...)`, the confirm button's `disabled(...)`→`enabled(...)` gate). If the app exposes no aria state for it, add it — that's an accessibility fix too.
-     - Re-clicking a modal/menu opener → model the container as `surface(..., { overlay: true })`; toggle-style panels → pin their singleton in the given and cover open/switch/close in a dedicated toggle workflow.
+     - Re-clicking a modal/menu opener → model the container as
+       `surface(..., { overlay: true })`. Relate a backing schema path with `equals()` when a
+       toggle-style panel's starting mode affects the path, then cover open, switch, and close in
+       one workflow.
      - A row/element revealed by a tab or filter switch → declare the reveal on that step.
        Fix the declaration, run `npx ripplo compile` until clean. A workflow passing alone is not grounds to dismiss.
-3. **Confirm.** `npx ripplo replay <runId>` re-drives the sequence. A clean replay confirms the fix landed — it does **not** explain the original failure. Classify the root cause first (step 2) — a replay that happens to pass is not license to resolve as "flake". Only call it flake once you know why it flaked. Edited `.ripplo/`? Confirm with `npx ripplo compile` + `npx ripplo run <affected>`.
-4. **Resolve.** `npx ripplo tasks resolve <id> --run <replayRunId>`. **You cannot dismiss a finding** — the server rejects it; intended behavior is still a model fix (declare it). One root cause often resolves sibling findings sharing a failing step.
+   - **Ripplo planner defect** — the assignment itself violates a declared actor identity, record
+     cardinality, navigation reset, or another statically provable precondition. Do not change the
+     app or workflow. Preserve the run, add the structured `explain --full` evidence to the task,
+     and mark it needs clarification for the user to report upstream.
+3. **Confirm.** `npx ripplo replay <runId>` re-drives the versioned symbolic assignment against the
+   same model. If the model changed, the old repro is stale and Ripplo says so instead of guessing.
+   A clean replay confirms the fix landed. It does not explain the original failure. Classify the
+   root cause first. Edited `.ripplo/`? Confirm with `npx ripplo compile` +
+   `npx ripplo run <affected>`.
+4. **Resolve.** `npx ripplo tasks resolve <id> --run <replayRunId>`. The server rejects dismissing a
+   finding. Fix the app or declaration, then prove it with replay. A Ripplo planner defect stays
+   needs clarification until the framework is fixed. One root cause often resolves sibling
+   findings sharing a failing step.
 
 **Add-vs-weaken guardrail.** Edits that **add** declarations are normal. Edits that **delete or weaken** them (dropping a fact, removing a declared effect, making a fact's values vaguer) only after proving from app source the behavior is intended — cite that proof. Never silence a finding by loosening workflows when the app is wrong.
 
@@ -59,21 +95,25 @@ Category names what broke: **crash** (app threw), **data rule** (cross-entity re
 
 ### Strongest proof: red → green assertion
 
-When the defect is a predicate, pin it with an assertion **red before the fix, green after** — prefer over a one-off screenshot.
+When the defect is expressible as a predicate, prove it with an assertion **red before the fix,
+green after**. Prefer that over a one-off screenshot.
 
 - Extend the workflow that exercises the flow, run it red on the broken app, fix, watch it go green.
-- **`unobstructed(locator)`** for one element covering another: `hover(row) → expect(unobstructed("..."))`; `not(unobstructed(...))` asserts it _is_ covered. Use `visible`/`value`/`text` and `Entity.created/updated/deleted` the same way.
+- **`unobstructed(locator)`** for one element covering another:
+  `hover(row) → expect(unobstructed("..."))`. Use `visible`, `value`, `text`, and typed state
+  effects the same way.
 - Transient element (toast, spinner, skeleton): `ephemeral(text(testId("toast-success"), "Saved"))` waits for it and passes the instant it appears, without leaking onto later steps.
-- Backend/state bug → backend assertion on the mutation step. Wrong value → pin the value.
+- Application-state bug → typed state effect on the mutation step. Relate the expected value to a
+  state handle, workflow input, or before/after transform.
 
 ### If not provable in an existing workflow, write one
 
 Don't resolve on a tangential run. Either:
 
-1. Extend the flagging workflow (add the `hover`, seed state, branch), resolve on that run, or
+1. Extend the flagging workflow (add the `hover`, starting-state constraint, or branch), resolve on that run, or
 2. Write a new workflow (`/ripplo:create`) reproducing the condition, scope it, run it red→green.
 
-New scaffolding (predicate, entity + impl, given) is in-scope, not a follow-up.
+New schema paths, source implementations, predicates, and givens are in scope.
 
 ## Visual loop (look/layout/timing bugs no predicate captures)
 
@@ -116,7 +156,7 @@ Tasks are independent — fan out. Delegate each (or a cluster sharing one workf
 
 - [ ] Read the snapshot PNG, validated element/state against the DOM.
 - [ ] A run exercises the broken condition (hover/state/branch).
-- [ ] Fix pinned by a **red→green assertion** or **before/after PNGs you Read**.
+- [ ] Fix proved by a **red→green assertion** or **before/after PNGs you Read**.
 - [ ] Resolving comment **anchored to run, frame, element**.
 - [ ] Never concluded "fixed" from a diff, toast, or log string.
 - [ ] No run reaches the condition? You extended/wrote the workflow that does.
