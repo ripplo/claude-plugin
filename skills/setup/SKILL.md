@@ -134,6 +134,32 @@ handler differently. Fastify exposes `registerStateSourceHandler()` and
 `registerAuthenticationHandler()`. Read the chosen subpath's types instead of copying Express
 mounting code.
 
+**Ripplo calls every engine route with `PUT`**, at `<RIPPLO_ENGINE_URL>/<action>` — `PUT /ripplo/setup`,
+`PUT /ripplo/state`, `PUT /ripplo/teardown`, `PUT /ripplo/sign-in`. The handler types are
+method-agnostic, so a framework that routes by method needs the verb written out. Next.js App Router
+names each export after its method, which means `export const POST` typechecks and then answers every
+call with 405:
+
+```ts
+// app/ripplo/[action]/route.ts
+import { createAuthenticationHandler, createStateSourceHandler } from "@ripplo/testing/nextjs";
+import { coreEngine, userAuthenticationEngine } from "@/lib/ripplo/engine";
+
+const enabled = process.env.ENABLE_RIPPLO_TESTING === "true";
+const stateSource = createStateSourceHandler({ enabled, engine: coreEngine });
+const authentication = createAuthenticationHandler({
+  enabled,
+  engines: [userAuthenticationEngine],
+});
+
+export const PUT = async (request: Request): Promise<Response> => {
+  const stateSourceResponse = await stateSource(request);
+  return stateSourceResponse.status === 404 ? authentication(request) : stateSourceResponse;
+};
+```
+
+A route that 405s on every action is this mistake. Check the verb before debugging anything else.
+
 **Vite dev server:** mount HTTP state through a plugin. Add the sign-in plugin below only when
 needed:
 
