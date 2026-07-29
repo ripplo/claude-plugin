@@ -1,6 +1,6 @@
 ---
 name: run
-description: "Run Ripplo e2e tests, diagnose failures, manage Testing Scope, and file caught app bugs — the whole run→diagnose→file loop. Use when executing tests, when a run fails, when a drift nudge fires, when the user says 'in scope' / 'out of scope', when they want to teleport / open a live browser at a step in a test, or the moment you confirm a real app bug. For triaging background-explorer findings, use /ripplo:tasks."
+description: "Run Ripplo e2e tests, diagnose failures, and manage Testing Scope — the whole run→diagnose→report loop. Use when executing tests, when a run fails, when a drift nudge fires, when the user says 'in scope' / 'out of scope', when they want to teleport / open a live browser at a step in a test, or the moment you confirm a real app bug. For triaging background-explorer findings, use /ripplo:tasks."
 ---
 
 # Run Ripplo Tests
@@ -144,7 +144,7 @@ verify, then move on. Verify with `npx ripplo run <workflow-slug>/<test-slug>` u
   source read.
 - **Setup succeeds but the action does nothing** — the click runs, no mutation lands, and no network request fires. Inspect the app source for the real precondition, then model that precondition without fixing unrelated values. Cover state-dependent outcomes with `when`.
 - **Parallel collision** — unique-constraint, 401 mid-run, vanishing rows. A source setup, read, or teardown implementation is not isolated by `runId`. Scope every source operation to the current run.
-- **App bug** — file it (below), report to the user with evidence. Don't work around.
+- **App bug** — report it to the user with evidence (see below). Don't work around.
 - **App never signaled ready** (`appNotReady`) — the app did not call the connection's `ready()`
   after loading. Wire `connect(browserEngine)` from `@ripplo/testing/browser` before render when
   the schema has browser state, or `connect()` when it does not. Then call `connection.ready()` at
@@ -154,28 +154,11 @@ verify, then move on. Verify with `npx ripplo run <workflow-slug>/<test-slug>` u
 - **Stale lockfile** (422 / "unsupported lockfile version") — `npx ripplo compile` and commit. Never hand-edit.
 - **Server out of sync** — `npx ripplo sync`.
 
-## Filing a caught bug
+## Reporting a caught bug
 
-When a run surfaces a **real app bug**, file it for the Caught Bugs dashboard:
+When a run surfaces a **real app bug**, tell the user the moment the decision lands on app bug — name the broken behavior, the actual defect (function, file, missing branch, dropped call), and one or two sentences of evidence citing the failing assertion or behavior.jsonl, plus the catching run id.
 
-```sh
-npx ripplo report-bug \
-  --kind <new_feature_bug|regression|latent_bug> \
-  --title "Short bug name" \
-  --root-cause "What was actually wrong in the app code" \
-  --surfaced-by "How the run exposed it — cite the failing assertion or behavior.jsonl evidence" \
-  --run <runId>
-```
-
-`--run` is required — the catching run, links the bug to its replay. For an exploration finding, pass its repro `explore-…` run id.
-
-**The bar:** only functionality bugs in the app under test — behavior a user would call broken. Do not file: test gaps / wrong locators / races / under-specified assertions / starting-state model problems; flaky infra / daemon / sync / stale lockfiles; style / copy / cosmetic; anything unconfirmed against evidence.
-
-**Kind:** built this session → `new_feature_bug`; worked before a recent change → `regression`; already broken, new coverage exposed it → `latent_bug`.
-
-**When:** the moment a decision lands on app bug, before reporting back. One report per distinct root cause (cite the most direct test/run). Filing doesn't replace telling the user — surface it with evidence.
-
-**Fields:** `--title` names the broken behavior not the test; `--root-cause` the actual defect (function, file, missing branch, dropped call); `--surfaced-by` one or two sentences of evidence.
+**The bar:** only functionality bugs in the app under test — behavior a user would call broken. Not app bugs: test gaps / wrong locators / races / under-specified assertions / starting-state model problems; flaky infra / daemon / sync / stale lockfiles; style / copy / cosmetic; anything unconfirmed against evidence.
 
 ## Testing Scope
 

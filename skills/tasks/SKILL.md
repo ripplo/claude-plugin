@@ -53,7 +53,7 @@ action sound. Harmless unknown state stays silent.
    step. Add `--full` for the synthesized starting-state blob, actor, parameters, action timeline,
    state effects, and raw structured engine diagnostics.
 2. **Classify** (four-move tree in `/ripplo:run`):
-   - **App bug** — fix the app, file with `npx ripplo report-bug --run <explore-runId>` to link the bug to the finding. (Duplicate/stacked UI like doubled toasts is usually this — e.g. a toast without a stable id.)
+   - **App bug** — fix the app and report it to the user with evidence, citing the finding's `explore-…` run id. (Duplicate/stacked UI like doubled toasts is usually this — e.g. a toast without a stable id.)
    - **Workflow declaration gap** — app source proves behavior is intended, but the workflow
      omitted the starting-state branch, precondition, or effect. Add or harden the declaration.
      Never weaken a true declaration to make the finding disappear.

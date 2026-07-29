@@ -407,7 +407,7 @@ with a broad `fact()`.
 3. Write the widest starting-state constraints consistent with the entire path.
 4. Sweep state-dependent outcomes into named branches.
 5. Add missing state schema fields and source implementations.
-6. Write the workflow with exhaustive UI and state effects.
+6. Write the workflow with exhaustive UI and state effects. Place the file in a feature folder — `.ripplo/workflows/<feature>/<workflow>.ts`, never flat under `.ripplo/workflows/`. The folder name groups workflows on the dashboard; flat files all land in "Ungrouped". Reuse an existing feature folder when one fits.
 7. Audit every string and number for unnecessary specificity.
 8. Verify every effect is complete and provably changing.
 9. Register it in `.ripplo/workflows/index.ts`.
