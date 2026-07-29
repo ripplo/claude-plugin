@@ -8,7 +8,7 @@
 
 End-to-end validation for agent-built apps, enforced inside the agent loop.
 
-[![Version](https://img.shields.io/badge/version-0.14.0-green.svg)](.claude-plugin/plugin.json)
+[![Version](https://img.shields.io/badge/version-0.15.0-green.svg)](.claude-plugin/plugin.json)
 [![Claude Code](https://img.shields.io/badge/Claude%20Code-plugin-d97757.svg)](https://docs.claude.com/en/docs/claude-code/plugins)
 
 [**Website**](https://ripplo.ai) · [**Docs**](https://ripplo.ai/docs)
