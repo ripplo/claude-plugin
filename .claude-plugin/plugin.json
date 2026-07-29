@@ -1,7 +1,7 @@
 {
   "name": "ripplo",
   "description": "Close the loop on full-stack app delivery. Agents and users define success as typed, state-aware user journeys. Hooks enforce coverage, and replay shows exactly what happened.",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "author": {
     "name": "Ripplo",
     "url": "https://ripplo.ai"
