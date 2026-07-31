@@ -57,6 +57,12 @@ action sound. Harmless unknown state stays silent.
    - **Workflow declaration gap** — app source proves behavior is intended, but the workflow
      omitted the starting-state branch, precondition, or effect. Add or harden the declaration.
      Never weaken a true declaration to make the finding disappear.
+     - **Matched N elements** (`multipleMatches`) is always this, never an app or planner problem.
+       A locator that names an element only by its accessible name matches every element carrying
+       that name, and generated values collide. Scope it: `inside(main(), button(name))`,
+       `inside(row(schedule.name), button("Delete"))`. Snapshot the failing frame and grep
+       `snapshot-<ms>ms.html` for the name to see both matches, then scope to the one the step
+       means. Renaming the app element to dodge the collision fixes nothing.
    - **Workflow coverage gap** — move or add the explicit visibility declaration identified by the
      gap. Match the shape:
      - Outcome depends on starting state the workflow does not cover → model the widest meaningful
@@ -74,6 +80,22 @@ action sound. Harmless unknown state stays silent.
      cardinality, navigation reset, or another statically provable precondition. Do not change the
      app or workflow. Preserve the run, add the structured `explain --full` evidence to the task,
      and mark it needs clarification for the user to report upstream.
+
+     **This is the last branch, and the bar is high.** It parks the task on the user and stops the
+     work, so reach it only by elimination. Before you pick it, write down all three:
+
+     1. The exact declaration the assignment violated — the workflow file, the step, the line.
+        "The planner should have coordinated X" is not a declaration. If you cannot cite one, this
+        is not a planner defect.
+     2. Why no locator scope, added declaration, or `when` branch fixes it. A fix that exists in the
+        workflow layer is a declaration gap, whatever produced the value.
+     3. Every claim in your story checked against the snapshot. A theory built from a truncated
+        `behavior.jsonl` line and never re-checked against the rendered frame is a guess. Guesses do
+        not go to the user.
+
+     Never a planner defect: a duplicate accessible name, a generated value that collides with
+     another record's value, a locator that matched the wrong element, a value you expected to be
+     unique and was not. Those are locator precision or declaration gaps — fix them in the workflow.
 3. **Confirm.** `npx ripplo replay <runId>` re-drives the versioned symbolic assignment against the
    same model. If the model changed, the old repro is stale and Ripplo says so instead of guessing.
    A clean replay confirms the fix landed. It does not explain the original failure. Classify the
