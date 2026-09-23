@@ -1,7 +1,7 @@
 {
   "name": "ripplo",
-  "description": "Ripplo reviews pull requests by driving your app end to end in a real browser and reporting what broke, with the evidence. This plugin connects an app to Ripplo and lets Claude Code fix what a review found.",
-  "version": "0.16.0",
+  "description": "Ripplo reviews pull requests by driving your app end to end in a real browser and reporting what broke, with the evidence. This plugin connects an app to Ripplo and lets Claude Code fix what a review found and add what a review could not cover.",
+  "version": "0.17.0",
   "author": {
     "name": "Ripplo",
     "url": "https://ripplo.ai"

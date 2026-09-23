@@ -10,7 +10,7 @@ Input: a code review id, optionally followed by `issue <issueId>`. Output: the a
 Everything comes from the CLI. Never query Ripplo any other way.
 
 ```sh
-npx ripplo review <codeReviewId>            # issues of the published attempt (JSON)
+npx ripplo review <codeReviewId>            # issues and gaps of the published attempt (JSON)
 npx ripplo explain <runId>                  # failures per step with nearby evidence (JSON)
 npx ripplo snapshot <runId> --offset <ms>   # PNG + rrweb-tagged HTML of that frame
 ```
@@ -29,4 +29,4 @@ Issues are independent. Fan out to subagents when there are many, one issue or o
 
 ## Finish
 
-Report per issue: fixed or disputed, what changed, run id and frame you checked. Tell the user to push. Ripplo reviews the new commit, that review is the proof.
+Report per issue: fixed or disputed, what changed, run id and frame you checked. When `gaps` is not empty, say how many workflows the review could not cover and that `/ripplo:cover <codeReviewId>` adds what they need. Do not act on gaps here. Tell the user to push. Ripplo reviews the new commit, that review is the proof.
