@@ -22,13 +22,21 @@ It connects the repository to Ripplo, creates an OpenID Connect connection, and 
 
 ## Use
 
-Copy the review id from the Ripplo dashboard, then:
+Start a review of a pull request from Claude Code:
+
+```
+/ripplo:review <pull request URL>
+```
+
+Claude starts the review, checks on it while it runs, and picks up the result when it finishes.
+
+For a review that already ran, copy its id from the Ripplo dashboard:
 
 ```
 /ripplo:review <codeReviewId>
 ```
 
-Claude pulls the published issues, renders the failing frames, classifies each issue, and fixes the app in your working tree. Push, and Ripplo reviews again.
+Claude pulls the published issues, renders the failing frames, classifies each issue, and fixes the app in your working tree. After you push, Claude offers to review the new commit and waits for the result.
 
 When a review lists workflows Ripplo could not cover, the app lacks a way for Ripplo to create or observe some state. Copy the command from that list, or from the coverage page:
 

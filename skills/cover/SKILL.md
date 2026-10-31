@@ -32,4 +32,4 @@ Gaps are independent. Fan out to subagents when there are many, one gap or one s
 
 ## Finish
 
-Report per gap: already possible, access extended, or added, naming the route or API. Tell the user to push. The next Ripplo review can now cover the workflow.
+Report per gap: already possible, access extended, or added, naming the route or API. Tell the user to push. The next Ripplo review can now cover the workflow. Once the push is on the pull request, offer to run `npx ripplo review start <prUrl>` with the `prUrl` from `npx ripplo review <codeReviewId>`, and wait for it as `/ripplo:review` describes.
