@@ -26,10 +26,23 @@ Every request a run makes carries a signed `x-ripplo-run` header, also when no u
 1. **Read `blockedBy`.** It says what Ripplo cannot create or observe. It never says how to fix it.
 2. **Look for an existing API.** Find the app code that creates or reads that state. If an API already does it and the run user can call it with their own session, report that and change nothing. If it exists only behind a role the run user cannot hold, allow it for a verified Ripplo run.
 3. **Otherwise add the smallest API that does it.** A route that creates the row or state the gap names, or one that reads it back. Guard it with `ripploRunId` and reject when it returns `undefined`. Never mount it unguarded.
-4. **Keep it application code.** Test it like the rest of the app. Do not write `.ripplo/` files, bindings, or state schemas. Ripplo writes those on the next review.
+4. **Keep it application code.** Test it like the rest of the app. Do not write `.ripplo/` files, bindings, or state schemas. The next Ripplo review of the pull request writes those and the workflow for each gap.
 
 Gaps are independent. Fan out to subagents when there are many, one gap or one shared file cluster per agent, each told to load `/ripplo:cover` first.
 
 ## Finish
 
-Report per gap: already possible, access extended, or added, naming the route or API. Tell the user to push. The next Ripplo review can now cover the workflow. Once the push is on the pull request, offer to run `npx ripplo review start <prUrl>` with the `prUrl` from `npx ripplo review <codeReviewId>`, and wait for it as `/ripplo:review` describes.
+Report per gap: already possible, access extended, or added, naming the route or API.
+
+The next review reads the pull request description to learn which gaps to cover. Add this section to it, one line per gap, with the `workflow` exactly as the gap gives it. Include the gaps that were already possible, because no code change points the review at them.
+
+```md
+## Ripplo gaps
+
+- <workflow>: added `POST /api/ripplo/invoices`, which creates an invoice for the run's organization.
+- <workflow>: already possible, `GET /api/orders/:id` returns the refund state.
+```
+
+When the branch has no pull request yet, give the user the section to paste when they open one.
+
+Tell the user to push. Once the push is on the pull request, offer to run `npx ripplo review start <prUrl> --depth deep`, with the `prUrl` from `npx ripplo review <codeReviewId>`, and wait for it as `/ripplo:review` describes. The review covers each listed workflow, or keeps its gap and says what still blocks it.
