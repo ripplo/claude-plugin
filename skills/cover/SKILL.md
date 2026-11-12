@@ -1,19 +1,20 @@
 ---
 name: cover
-description: "Add what a Ripplo review could not cover. Use when the user pastes `/ripplo:cover` with a code review id or a list of workflows, or asks to make an uncovered workflow testable. Reads each gap, adds the API or route the app lacks so Ripplo can set up and observe that state, and reports per gap."
+description: "Add what Ripplo could not cover. Use when the user pastes `/ripplo:cover`, alone, with a code review id, or with a list of workflows, or asks to make an uncovered workflow testable. Reads each gap, adds the API or route the app lacks so Ripplo can set up and observe that state, and reports per gap."
 ---
 
 # Cover the workflows a Ripplo review could not
 
-Input: a code review id, or one line per workflow pasted after the command (`- <workflow>: <what Ripplo cannot do>`). Output: the app changed in the working tree so Ripplo can create and observe the state each gap names, one short report per gap.
+Input: nothing, a code review id, or one line per workflow pasted after the command (`- <workflow>: <what Ripplo cannot do>`). Output: the app changed in the working tree so Ripplo can create and observe the state each gap names, one short report per gap.
 
-With an id, the gaps come from the CLI. Never query Ripplo any other way. With pasted lines, those are the gaps and there is nothing to fetch.
+With nothing after the command, the gaps are every gap of the project connected to this repository. With an id, they are the gaps of that review. Both come from the CLI. Never query Ripplo any other way. With pasted lines, those are the gaps and there is nothing to fetch. When the input ends with a `Server: <url>` line, it is not a gap: prefix every `npx ripplo` command with `RIPPLO_SERVER_URL=<url>`.
 
 ```sh
+npx ripplo gaps                    # every gap of the project (JSON)
 npx ripplo review <codeReviewId>   # issues and gaps of the published attempt (JSON)
 ```
 
-Read the `gaps` array: `workflow` names the user journey, `blockedBy` names what the app does not give Ripplo. Sign in first if the command says so: `npx ripplo login`.
+When `gaps` says several projects are connected to the repository, ask the user which one and pass it with `--project <id>`. Read the `gaps` array: `workflow` names the user journey, `blockedBy` names what the app does not give Ripplo. Sign in first if the command says so: `npx ripplo login`.
 
 ## What a gap means
 

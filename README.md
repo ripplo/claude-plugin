@@ -38,10 +38,11 @@ For a review that already ran, copy its id from the Ripplo dashboard:
 
 Claude pulls the published issues, renders the failing frames, classifies each issue, and fixes the app in your working tree. After you push, Claude offers to review the new commit and waits for the result.
 
-When a review lists workflows Ripplo could not cover, the app lacks a way for Ripplo to create or observe some state. Copy the command from that list, or from the coverage page:
+When a review lists workflows Ripplo could not cover, the app lacks a way for Ripplo to create or observe some state. Copy the command from that list, or from the coverage page. Run it alone to cover every gap of the project:
 
 ```
 /ripplo:cover <codeReviewId>
+/ripplo:cover
 ```
 
 Claude reads each gap and adds the API or route the app is missing, guarded for Ripplo runs. Push, and the next review covers the workflow.

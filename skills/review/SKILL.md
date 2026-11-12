@@ -7,7 +7,7 @@ description: "Start, wait for, and address a Ripplo code review. Use when the us
 
 Input: a code review id, optionally followed by `issue <number>`, or a pull request URL to review. Output: the app fixed in the working tree, one short report per issue. When an issue number is named, address that issue only.
 
-Everything comes from the CLI. Never query Ripplo any other way.
+Everything comes from the CLI. Never query Ripplo any other way. When the input ends with a `Server: <url>` line, it is not part of the id or issue: prefix every `npx ripplo` command with `RIPPLO_SERVER_URL=<url>`.
 
 ```sh
 npx ripplo review start <prUrl> [--depth fast|deep] [--app-url <url>] [--auth <name>]   # review the latest commit, prints codeReviewId (JSON)
@@ -22,7 +22,7 @@ npx ripplo snapshot <runId> --offset <ms>   # PNG + rrweb-tagged HTML of that fr
 
 ## Start and wait
 
-- A pull request URL: run `start`, then wait for the `codeReviewId` it prints. `"alreadyRunning": true` means a review of the pull request was already in progress and nothing new started, so wait for that one. When it says the pull request has no preview URL or several, ask the user for the app address and pass it with `--app-url`. A pull request that was reviewed before is reviewed again with the last run's depth, app, and auth connection, unless a flag says otherwise.
+- A pull request URL: run `start`, then wait for the `codeReviewId` it prints. `"alreadyRunning": true` means a review of the pull request was already in progress and nothing new started, so wait for that one. `"waitingForPreview": true` means the pull request has no preview in a deploy comment yet. The review starts once one is posted and `status` reports `previewBuilding` until then. When it says the pull request has several preview URLs, ask the user which one and pass it with `--app-url`. A pull request that was reviewed before is reviewed again with the last run's depth, app, and auth connection, unless a flag says otherwise.
 - A code review id: run `npx ripplo review status <codeReviewId>`. When `stage` is `published`, continue with the loop below. Otherwise wait for it.
 
 `status` prints `stage`, `reviewedSha` (the commit the published review ran on), `latestSha` (the pull request's latest commit), and `failure`. While the review is in progress `stage` is `previewBuilding`, `previewFailed`, `queued`, or `running`. It ends as `published`, `failed` (with `failure` saying why), or `stopped` (canceled, or nothing running and nothing published).
